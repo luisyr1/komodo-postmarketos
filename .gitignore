@@ -1,0 +1,274 @@
+# Goal: no dump, log or firmware gets in by accident, while the legitimate
+# files of a port (docs, scripts, device packaging) stay visible. Broad rules
+# come first; the re-includes for legitimate files are at the END of this file.
+# Note: git cannot re-include a file whose parent directory is ignored.
+#
+# Objetivo: que ningún volcado, log o firmware entre por accidente, sin ocultar
+# los ficheros legítimos del port. Las reglas amplias van primero; las
+# re-inclusiones de lo legítimo, al FINAL del fichero.
+
+# ==== Private data: never commit ====
+# Typical dump directories are ignored entirely, at any depth.
+backups/
+backup/
+private/
+secrets/
+dumps/
+dump/
+tmp/
+/scratch/
+
+# ==== Logs and diagnostics (may contain serial, IMEI, MAC, accounts) ====
+# Any file or directory whose name contains these words, at any depth and with
+# any extension. Docs and scripts with these words are re-included at the end.
+# The most critical ones are case-insensitive.
+*[gG][eE][tT][vV][aA][rR]*
+*[gG][eE][tT][pP][rR][oO][pP]*
+*[dD][mM][eE][sS][gG]*
+*[lL][oO][gG][cC][aA][tT]*
+*[dD][uU][mM][pP][sS][tT][aA][tT][eE]*
+*[bB][uU][gG][rR][eE][pP][oO][rR][tT]*
+*[pP][sS][tT][oO][rR][eE]*
+*[rR][aA][mM][oO][oO][pP][sS]*
+*[kK][mM][sS][gG]*
+*[tT][oO][mM][bB][sS][tT][oO][nN][eE]*
+*adb-devices*
+*udevadm*
+uevent
+devices.txt
+*.[lL][oO][gG]
+logs/
+*.trace
+*.out
+
+# Device property / identity outputs
+build.prop
+*.prop
+props
+props.*
+props.txt
+vars.txt
+*fastboot*.txt
+cmdline*.txt
+*cpuinfo*
+*lsusb*
+*usb-devices*
+ip-a*.txt
+ifconfig*.txt
+cdt*.txt
+*[sS][eE][rR][iI][aA][lL][nN][oO]*
+serial*.txt
+*serial*.log
+*[iI][mM][eE][iI]*
+
+# ==== Partition images, dumps and archives ====
+*.[iI][mM][gG]
+*.img.*
+*.[bB][iI][nN]
+*.raw
+*.sparse
+*.simg
+*.ext4
+*.erofs
+*.squashfs
+*.cpio
+*.cpio.*
+*.apk
+*.fw
+*.[zZ][iI][pP]
+*.7z
+*.rar
+*.tar
+*.tar.*
+*.tgz
+*.gz
+*.xz
+*.zst
+*.lz4
+*.bz2
+*.dump
+*.ozip
+*.bak
+payload*.bin
+
+# Partitions with IMEI / calibration / identity, dumped without extension, at
+# any depth (exact names only, so docs/modem.md or docs/persistence.md are not
+# hit). EFS and PERSIST are also matched in upper case.
+**/[eE][fF][sS]
+**/efs_backup
+**/sec_efs
+**/[pP][eE][rR][sS][iI][sS][tT]
+**/devinfo
+**/modem
+**/modemst*
+**/frp
+**/misc
+**/metadata
+# Same family, at the repository root with any suffix.
+/efs*
+/sec_efs*
+/persist*
+/devinfo*
+/modem*
+/fsg*
+/fsc*
+/mfg*
+/frp*
+/fips*
+
+# Firmware / boot partitions dumped at the repository root.
+/boot
+/boot_*
+/vbmeta*
+/bootloader*
+/radio*
+/abl*
+/bl[12]*
+/bl31*
+/gsa*
+/ldfw*
+/tzsw*
+/pvmfw*
+/super*
+/userdata*
+/vendor_boot*
+/vendor_kernel_boot*
+/init_boot*
+/dtbo*
+
+# Kernel / ramdisk artefacts, at any depth.
+**/initramfs
+/initramfs*
+initrd*
+ramdisk*
+**/Image
+Image.*
+vmlinux*
+*.o
+*.ko
+*.dtb
+*.dtbo
+
+# ==== Checksums of private dumps (they fingerprint the unit's data) ====
+[sS][hH][aA]*[sS][uU][mM][sS]*
+MD5SUMS*
+*.md5
+*.sha256
+*.sha256sum
+*.sha512
+*checksums*
+sums.txt
+hashes.txt
+
+# ==== Secrets, keys and network credentials ====
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.gpg
+*.asc
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+ssh_host_*
+authorized_keys
+known_hosts
+.ssh/
+.netrc
+*.nmconnection
+wpa_supplicant*.conf
+*.token
+*credentials*
+pmbootstrap*.cfg
+# SSH key pairs with any prefix (e.g. the initramfs debug key) and key folders
+*_ed25519
+*_ed25519.pub
+*_ecdsa
+*_ecdsa.pub
+*_rsa
+*_rsa.pub
+*.pub
+keys/
+claves/
+dropbear_*_host_key
+
+# Shell / tool histories and core dumps
+*history*
+/core
+core.[0-9]*
+*.core
+
+# ==== Screenshots, photos, videos and documents (EXIF/metadata, on-screen
+# identifiers). Legitimate images are added with an explicit exception (e.g.
+# "!docs/img/diagram.png") only after stripping EXIF/metadata.
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[hH][eE][iI][cC]
+*.[wW][eE][bB][pP]
+*.gif
+*.avif
+*.bmp
+*.tif
+*.tiff
+*.pdf
+*.[mM][pP]4
+*.[mM][oO][vV]
+*.mkv
+*.webm
+
+# Agent / tool local state
+.claude/
+CLAUDE.local.md
+
+# pmbootstrap work directories (anchored to the root)
+.pmbootstrap/
+pmbootstrap_work/
+/work/
+/cache_*/
+/packages/
+/chroot_*/
+
+# Kernel build outputs (anchored to the root)
+/out/
+/build/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+.DS_Store
+Thumbs.db
+
+# ==== Re-includes: legitimate project files (keep at the END) ====
+# Only by extension inside the project directories. There is deliberately no
+# global "!*.md": it would re-open root files such as getvar-all.md or imei.md.
+# A file inside an ignored directory (backups/, tmp/, ...) stays ignored.
+!/README.md
+!/LICENSE
+!/.gitignore
+!docs/**/*.md
+!scripts/**/*.sh
+!scripts/**/*.py
+!scripts/**/README.md
+!device/**/*.sh
+!device/**/README.md
+
+# ==== Re-excludes after the re-includes (keep LAST) ====
+# "!docs/**/*.md" must not re-open a dump saved as Markdown inside docs/.
+# "!docs/**/*.md" no debe reabrir un volcado guardado como Markdown en docs/.
+docs/**/*[iI][mM][eE][iI]*
+docs/**/*[gG][eE][tT][vV][aA][rR]*
+docs/**/*[gG][eE][tT][pP][rR][oO][pP]*
+docs/**/*[dD][mM][eE][sS][gG]*
+docs/**/*[sS][eE][rR][iI][aA][lL][nN][oO]*
+docs/**/*[hH][aA][sS][hH][eE][sS]*
