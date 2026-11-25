@@ -1,0 +1,335 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 20:00:00 +0000
+Subject: [PATCH 13/13] wifi: brcmfmac: add the BCM4390 (Pixel 9 Pro XL)
+
+PCI 14e4:4438, chip 0x4390, NCI backplane, ARM CA7 with SYSMEM at
+0x2a0000 (text_start in the stock firmware maps), handled like its
+BCM4398 sibling: FLR reset, power domain requests, DB7 trap before
+release, boot interrupt, JOIN_V1, host SFHLLC, no firmware supplicant.
+Where Google's bcmdhd for the BCM4390 (kernel/google-modules/wlan/
+bcmdhd/bcm4390, android-gs-caimito-6.1-android16) treats it differently:
+
+- RAM size fixed at 3276800 bytes, as bcmdhd does instead of trusting
+  the SYSMEM bank count (NVRAM and the shared address live at the top).
+- PFM kickstart on PMU regulator 11 for revisions 2 (b0) and 5 (b1)
+  before anything else, through the config space indirect backplane
+  access (dhdpcie_chip_specific_init(): ASR crash on cold start).
+- Scan MAC and SAQM power domains only if those cores exist
+  (si_srpwr_domain_all_mask()), once the cores are known.
+- Firmware per revision, a0 = rev 0, b0 = rev 2, b1 = rev 5 (bcmdhd's
+  chip_revs[]): brcm/brcmfmac4390{a0,b0,b1}-pcie.<board>.{bin,txt,
+  clm_blob,txcap_blob}.
+- BSS info versions 115 and 116 accepted: same v109 prefix.
+
+Builds (clang r596125, W=1, no warnings). Not tested on hardware.
+---
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |    4 +
+ .../wireless/broadcom/brcm80211/brcmfmac/chip.c    |   18 ++++
+ .../wireless/broadcom/brcm80211/brcmfmac/feature.c |    3 +
+ .../broadcom/brcm80211/brcmfmac/fwil_types.h       |    5 +
+ .../wireless/broadcom/brcm80211/brcmfmac/pcie.c    |   98 ++++++++++++++++++++
+ .../broadcom/brcm80211/include/brcm_hw_ids.h       |    2 
+ 6 files changed, 127 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index f57a5df..066941f 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -3556,7 +3556,9 @@ static s32 brcmf_inform_bss(struct brcmf_cfg80211_info *cfg)
+ 	bss_list = (struct brcmf_scan_results *)cfg->escan_info.escan_buf;
+ 	if (bss_list->count != 0 &&
+ 	    bss_list->version != BRCMF_BSS_INFO_VERSION &&
+-	    bss_list->version != BRCMF_BSS_INFO_VERSION_114) {
++	    bss_list->version != BRCMF_BSS_INFO_VERSION_114 &&
++	    bss_list->version != BRCMF_BSS_INFO_VERSION_115 &&
++	    bss_list->version != BRCMF_BSS_INFO_VERSION_116) {
+ 		bphy_err(drvr, "Version %d != WL_BSS_INFO_VERSION\n",
+ 			 bss_list->version);
+ 		return -EOPNOTSUPP;
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/chip.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/chip.c
+index a97013c..c95dd8d 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/chip.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/chip.c
+@@ -95,6 +95,9 @@
+ /* Max possibly supported memory size (limited by IO mapped memory) */
+ #define BRCMF_CHIP_MAX_MEMSIZE		(4 * 1024 * 1024)
+ 
++/* BCM4390 RAM size as Broadcom's driver sets it (bus->orig_ramsize) */
++#define BRCMF_CHIP_4390_RAMSIZE		3276800
++
+ #define CORE_SB(base, field) \
+ 		(base + SBCONFIGOFF + offsetof(struct sbconfig, field))
+ #define	SBCOREREV(sbidh) \
+@@ -824,6 +827,7 @@ static u32 brcmf_chip_sysmem_ramsize(struct brcmf_core_priv *sysmem)
+ 
+ 	switch (sysmem->chip->pub.chip) {
+ 	case BRCM_CC_4389_CHIP_ID:
++	case BRCM_CC_4390_CHIP_ID:
+ 	case BRCM_CC_4398_CHIP_ID:
+ 		/* Count the RAM banks only, and skip the ROM banks in
+ 		 * front of them.
+@@ -854,6 +858,18 @@ static u32 brcmf_chip_sysmem_ramsize(struct brcmf_core_priv *sysmem)
+ 	brcmf_dbg(INFO, "SYSMEM rev %u coreinfo 0x%08x: %u ROM, %u RAM banks\n",
+ 		  sysmem->pub.rev, coreinfo, nrb, nb);
+ 
++	/*
++	 * Broadcom's driver does not trust the BCM4390's SYSMEM geometry and
++	 * uses 3200 KiB from the 0x2a0000 base (dhd_pcie.c, "Temp fix for
++	 * si_sysmem_size() incorrect RAM size"). The firmware looks for
++	 * NVRAM and the shared area address at the top of that.
++	 */
++	if (sysmem->chip->pub.chip == BRCM_CC_4390_CHIP_ID) {
++		brcmf_info("BCM4390: SYSMEM reports %u bytes, using %u\n",
++			   memsize, BRCMF_CHIP_4390_RAMSIZE);
++		memsize = BRCMF_CHIP_4390_RAMSIZE;
++	}
++
+ 	return memsize;
+ }
+ 
+@@ -930,6 +946,8 @@ static u32 brcmf_chip_tcm_rambase(struct brcmf_chip_priv *ci)
+ 		return 0x6e0000;
+ 	case BRCM_CC_4387_CHIP_ID:
+ 		return 0x740000;
++	/* The BCM4390's firmware maps text_start at 0x2a0000 too (stock .map) */
++	case BRCM_CC_4390_CHIP_ID:
+ 	case BRCM_CC_4398_CHIP_ID:
+ 		return 0x2a0000;
+ 	default:
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/feature.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/feature.c
+index 85c1ef8..314a884 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/feature.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/feature.c
+@@ -169,6 +169,7 @@ static void brcmf_feat_wlc_version_overrides(struct brcmf_pub *drv)
+ 	 */
+ 	if ((drv->bus_if->chip == BRCM_CC_4389_CHIP_ID ||
+ 	     drv->bus_if->chip == BRCM_CC_4383_CHIP_ID ||
++	     drv->bus_if->chip == BRCM_CC_4390_CHIP_ID ||
+ 	     drv->bus_if->chip == BRCM_CC_4398_CHIP_ID) &&
+ 	    ((major == 14 && (minor == 2 || minor == 4)) ||
+ 	     (major == 16 && minor >= 1) || major >= 17))
+@@ -382,6 +383,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
+ 
+ 	/* Host-built 802.3 + LLC/SNAP TX headers: the BCM4389 and BCM4398 for now */
+ 	if (drvr->bus_if->chip != BRCM_CC_4389_CHIP_ID &&
++	    drvr->bus_if->chip != BRCM_CC_4390_CHIP_ID &&
+ 	    drvr->bus_if->chip != BRCM_CC_4398_CHIP_ID)
+ 		drvr->feat_flags &= ~BIT(BRCMF_FEAT_HOST_SFHLLC);
+ 
+@@ -393,6 +395,7 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
+ 	 * authentication. Leave the handshakes to the host.
+ 	 */
+ 	if (drvr->bus_if->chip == BRCM_CC_4383_CHIP_ID ||
++	    drvr->bus_if->chip == BRCM_CC_4390_CHIP_ID ||
+ 	    drvr->bus_if->chip == BRCM_CC_4398_CHIP_ID)
+ 		drvr->feat_flags &= ~(BIT(BRCMF_FEAT_FWSUP) | BIT(BRCMF_FEAT_SAE) |
+ 				      BIT(BRCMF_FEAT_FWAUTH));
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwil_types.h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwil_types.h
+index 0fe42ec..29ea67b 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwil_types.h
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fwil_types.h
+@@ -21,6 +21,11 @@
+ #define	BRCMF_BSS_INFO_VERSION	109 /* curr ver of brcmf_bss_info_le struct */
+ /* v114 (the BCM4398's firmware): v109 with EHT fields appended */
+ #define	BRCMF_BSS_INFO_VERSION_114	114
++/* v115 (v114 plus the AP MLD address) and v116 (a reserved byte now the 6 GHz
++ * regulatory info), as in the BCM4390's bcmdhd: the same v109 prefix
++ */
++#define	BRCMF_BSS_INFO_VERSION_115	115
++#define	BRCMF_BSS_INFO_VERSION_116	116
+ #define BRCMF_BSS_RSSI_ON_CHANNEL	0x0004
+ 
+ #define BRCMF_STA_BRCM			0x00000001	/* Running a Broadcom driver */
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
+index c660797..de89154 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/pcie.c
+@@ -82,6 +82,14 @@ BRCMF_FW_CLM_DEF(4389C1, "brcmfmac4389c1-pcie");
+ BRCMF_FW_CLM_DEF(4383, "brcmfmac4383-pcie");
+ /* BCM4398 rev 3, d0 (Pixel 8 Pro): the owner's firmware set */
+ BRCMF_FW_CLM_DEF(4398D0, "brcmfmac4398d0-pcie");
++/*
++ * BCM4390 (Pixel 9 Pro XL), one set per revision as Google ships them
++ * (fw_bcmdhd.bin_4390_<rev>): Broadcom's driver names chip revision 0 a0,
++ * 2 b0 and 5 b1 (dhd_custom_cis.c chip_revs[]).
++ */
++BRCMF_FW_CLM_DEF(4390A0, "brcmfmac4390a0-pcie");
++BRCMF_FW_CLM_DEF(4390B0, "brcmfmac4390b0-pcie");
++BRCMF_FW_CLM_DEF(4390B1, "brcmfmac4390b1-pcie");
+ BRCMF_FW_CLM_DEF(54591, "brcmfmac54591-pcie");
+ 
+ /* firmware config files */
+@@ -126,6 +134,9 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
+ 	BRCMF_FW_ENTRY(BRCM_CC_4389_CHIP_ID, 0xFFFFFFFF, 4389C1),
+ 	BRCMF_FW_ENTRY(BRCM_CC_4383_CHIP_ID, 0xFFFFFFFF, 4383),
+ 	BRCMF_FW_ENTRY(BRCM_CC_4398_CHIP_ID, 0xFFFFFFF8, 4398D0),
++	BRCMF_FW_ENTRY(BRCM_CC_4390_CHIP_ID, 0x00000003, 4390A0), /* rev 0 */
++	BRCMF_FW_ENTRY(BRCM_CC_4390_CHIP_ID, 0x0000001C, 4390B0), /* rev 2 */
++	BRCMF_FW_ENTRY(BRCM_CC_4390_CHIP_ID, 0xFFFFFFE0, 4390B1), /* rev 5 */
+ };
+ 
+ #define BRCMF_PCIE_FW_UP_TIMEOUT		5000 /* msec */
+@@ -185,6 +196,24 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
+ #define BRCMF_PCIE_SRPWR_REQON_SHIFT		8
+ #define BRCMF_PCIE_SRPWR_STATUS_SHIFT		16
+ #define BRCMF_PCIE_SRPWR_TIMEOUT_US		15000
++/* The SAQM core, which has its own power domain (bcmdhd hndsoc.h) */
++#define BRCMF_PCIE_CORE_D11_SAQM		0x863
++
++/*
++ * BCM4390 b0 and b1 (chip revisions 2 and 5): before anything else
++ * Broadcom's driver sets PFM kickstart on PMU regulator 11 so the ASR does
++ * not crash on a cold start (dhd_pcie.c dhdpcie_chip_specific_init()). The
++ * PMU is reached through the config space indirect backplane access.
++ */
++#define BRCMF_PCIE_CFGREG_INDBP_ADDR		0x98
++#define BRCMF_PCIE_CFGREG_INDBP_DATA		0x9c
++#define BRCMF_PCIE_SSCTRL_BPACCESS_ENABLE	0x800c0
++#define BRCMF_PCIE_SSCTRL_BPACCESS_DISABLE	0x80080
++#define BRCMF_PCIE_4390_PMU_BASE		0x18018000
++#define BRCMF_PCIE_PMU_REGCTL_ADDR		0x658
++#define BRCMF_PCIE_PMU_REGCTL_DATA		0x65c
++#define BRCMF_PCIE_PMU_VREG11			0xb
++#define BRCMF_PCIE_PMU_PFM_KICKSTART_ENABLE	0x12000
+ 
+ #define BRCMF_PCIE2_INTA			0x01
+ #define BRCMF_PCIE2_INTB			0x02
+@@ -861,6 +890,7 @@ brcmf_pcie_select_core(struct brcmf_pciedev_info *devinfo, u16 coreid)
+ static bool brcmf_pcie_is_4389_family(struct brcmf_pciedev_info *devinfo)
+ {
+ 	return devinfo->pdev->device == BRCM_PCIE_4389_DEVICE_ID ||
++	       devinfo->pdev->device == BRCM_PCIE_4390_DEVICE_ID ||
+ 	       devinfo->pdev->device == BRCM_PCIE_4398_DEVICE_ID;
+ }
+ 
+@@ -875,6 +905,24 @@ static u32 brcmf_pcie_srpwr_domains(struct brcmf_pciedev_info *devinfo)
+ 	switch (devinfo->pdev->device) {
+ 	case BRCM_PCIE_4389_DEVICE_ID:
+ 		return BRCMF_PCIE_SRPWR_DMN_ALL;
++	case BRCM_PCIE_4390_DEVICE_ID:
++		/*
++		 * The BCM4390's bcmdhd asks for the scan MAC domain only with a
++		 * third D11 core and for SAQM only with an SAQM core
++		 * (si_srpwr_domain_all_mask()). Until the cores are known, as
++		 * for the BCM4398.
++		 */
++		if (devinfo->ci) {
++			u32 dmn = BRCMF_PCIE_SRPWR_DMN_ALL;
++
++			if (brcmf_chip_get_d11core(devinfo->ci, 2))
++				dmn |= BRCMF_PCIE_SRPWR_DMN4_MACSCAN;
++			if (brcmf_chip_get_core(devinfo->ci,
++						BRCMF_PCIE_CORE_D11_SAQM))
++				dmn |= BRCMF_PCIE_SRPWR_DMN6_SAQM;
++			return dmn;
++		}
++		fallthrough;
+ 	case BRCM_PCIE_4398_DEVICE_ID:
+ 		/* and the scan MAC and SAQM domains (si_srpwr_domain_all_mask()) */
+ 		return BRCMF_PCIE_SRPWR_DMN_ALL | BRCMF_PCIE_SRPWR_DMN4_MACSCAN |
+@@ -2400,7 +2448,8 @@ static void brcmf_pcie_db7_trap(struct brcmf_pciedev_info *devinfo)
+ {
+ 	u32 flags2;
+ 
+-	if (devinfo->pdev->device != BRCM_PCIE_4398_DEVICE_ID ||
++	if ((devinfo->pdev->device != BRCM_PCIE_4398_DEVICE_ID &&
++	     devinfo->pdev->device != BRCM_PCIE_4390_DEVICE_ID) ||
+ 	    !devinfo->shared.tcm_base_address)
+ 		return;
+ 
+@@ -2496,7 +2545,8 @@ static int brcmf_pcie_download_fw_nvram(struct brcmf_pciedev_info *devinfo,
+ 	 * dhdpcie_wait_readshared_area_addr(), "boot intr"). Interrupts are
+ 	 * not set up yet, so poll for it.
+ 	 */
+-	if (devinfo->pdev->device == BRCM_PCIE_4398_DEVICE_ID) {
++	if (devinfo->pdev->device == BRCM_PCIE_4398_DEVICE_ID ||
++	    devinfo->pdev->device == BRCM_PCIE_4390_DEVICE_ID) {
+ 		u32 mbint = BRCMF_PCIE_BARO_PCIE_ENUM_OFFSET +
+ 			    devinfo->reginfo->mailboxint;
+ 		u32 intstatus = 0;
+@@ -2695,6 +2745,46 @@ static void brcmf_pcie_buscore_write32(void *ctx, u32 addr, u32 value)
+ }
+ 
+ 
++static void brcmf_pcie_4390_asr_war(struct brcmf_pciedev_info *devinfo)
++{
++	struct pci_dev *pdev = devinfo->pdev;
++	u32 chipid, rev, bar0_win, ssctrl;
++
++	if (pdev->device != BRCM_PCIE_4390_DEVICE_ID)
++		return;
++
++	chipid = brcmf_pcie_buscore_read32(devinfo, SI_ENUM_BASE_DEFAULT);
++	if (chipid == 0xffffffff)
++		return;
++	rev = (chipid & CID_REV_MASK) >> CID_REV_SHIFT;
++	if (rev != 2 && rev != 5)
++		return;
++
++	pci_read_config_dword(pdev, BRCMF_PCIE_BAR0_WINDOW, &bar0_win);
++	pci_read_config_dword(pdev, BRCMF_PCIE_CFGREG_SUBSYSTEM_CONTROL,
++			      &ssctrl);
++
++	pci_write_config_dword(pdev, BRCMF_PCIE_BAR0_WINDOW,
++			       BRCMF_PCIE_4390_PMU_BASE);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_SUBSYSTEM_CONTROL,
++			       BRCMF_PCIE_SSCTRL_BPACCESS_ENABLE);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_INDBP_ADDR,
++			       BRCMF_PCIE_PMU_REGCTL_ADDR);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_INDBP_DATA,
++			       BRCMF_PCIE_PMU_VREG11);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_INDBP_ADDR,
++			       BRCMF_PCIE_PMU_REGCTL_DATA);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_INDBP_DATA,
++			       BRCMF_PCIE_PMU_PFM_KICKSTART_ENABLE);
++
++	/* restored the way Broadcom's driver restores them */
++	pci_write_config_dword(pdev, BRCMF_PCIE_BAR0_WINDOW, bar0_win);
++	pci_write_config_dword(pdev, BRCMF_PCIE_CFGREG_SUBSYSTEM_CONTROL,
++			       BRCMF_PCIE_SSCTRL_BPACCESS_DISABLE);
++	pci_info(pdev, "BCM4390 rev %u: PFM kickstart set (ssctrl was 0x%08x)\n",
++		 rev, ssctrl);
++}
++
+ static int brcmf_pcie_buscoreprep(void *ctx)
+ {
+ 	struct brcmf_pciedev_info *devinfo = ctx;
+@@ -2704,6 +2794,9 @@ static int brcmf_pcie_buscoreprep(void *ctx)
+ 	if (err)
+ 		return err;
+ 
++	/* first, as Broadcom's driver does on attach */
++	brcmf_pcie_4390_asr_war(devinfo);
++
+ 	/* before the first access to a core outside the always-on domain */
+ 	brcmf_pcie_srpwr_request(devinfo);
+ 	brcmf_pcie_set_bar_coherent(devinfo);
+@@ -3715,6 +3808,7 @@ static const struct pci_device_id brcmf_pcie_devid_table[] = {
+ 	BRCMF_PCIE_DEVICE(BRCM_PCIE_4389_DEVICE_ID, WCC_SEED),
+ 	BRCMF_PCIE_DEVICE(BRCM_PCIE_4383_DEVICE_ID, WCC_SEED),
+ 	BRCMF_PCIE_DEVICE(BRCM_PCIE_4398_DEVICE_ID, WCC_SEED),
++	BRCMF_PCIE_DEVICE(BRCM_PCIE_4390_DEVICE_ID, WCC_SEED),
+ 	BRCMF_PCIE_DEVICE(BRCM_PCIE_43752_DEVICE_ID, WCC_SEED),
+ 	BRCMF_PCIE_DEVICE(CY_PCIE_54591_DEVICE_ID, CYW),
+ 	{ /* end: all zeroes */ }
+diff --git a/drivers/net/wireless/broadcom/brcm80211/include/brcm_hw_ids.h b/drivers/net/wireless/broadcom/brcm80211/include/brcm_hw_ids.h
+index c453d6d..426d47e 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/include/brcm_hw_ids.h
++++ b/drivers/net/wireless/broadcom/brcm80211/include/brcm_hw_ids.h
+@@ -57,6 +57,7 @@
+ #define BRCM_CC_4377_CHIP_ID		0x4377
+ #define BRCM_CC_4378_CHIP_ID		0x4378
+ #define BRCM_CC_4383_CHIP_ID		0x4383
++#define BRCM_CC_4390_CHIP_ID		0x4390
+ #define BRCM_CC_4398_CHIP_ID		0x4398
+ #define BRCM_CC_4387_CHIP_ID		0x4387
+ #define BRCM_CC_4389_CHIP_ID		0x4389
+@@ -102,6 +103,7 @@
+ #define BRCM_PCIE_4377_DEVICE_ID	0x4488
+ #define BRCM_PCIE_4378_DEVICE_ID	0x4425
+ #define BRCM_PCIE_4383_DEVICE_ID	0x4449
++#define BRCM_PCIE_4390_DEVICE_ID	0x4438
+ #define BRCM_PCIE_4398_DEVICE_ID	0x4444
+ #define BRCM_PCIE_4387_DEVICE_ID	0x4433
+ #define BRCM_PCIE_4389_DEVICE_ID	0x4441

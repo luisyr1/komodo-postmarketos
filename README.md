@@ -1,21 +1,24 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
 > **Status: Nura (edge) with the Phosh UI is installed on `userdata` and boots
-> on our unit from slot B (Milestone 3, 2026-11-25): real KMS display with
-> brightness control, Mali-G715 GPU through Panthor and Mesa, touchscreen,
-> battery level readout, `reboot bootloader` to fastboot, SSH over USB. Not
-> working yet: WiFi, Bluetooth, audio, modem, cameras, managed USB-C; charging
-> from a PC port barely keeps up; every boot still spends a slot-B retry.
-> Stock Android 17 stays on slot A, but its data was wiped.**
+> on our unit from slot B (Milestones 3 and 4, 2026-11-25): real KMS display
+> with brightness control, Mali-G715 GPU through Panthor and Mesa,
+> touchscreen, battery level readout, `reboot bootloader` to fastboot, SSH
+> over USB, and **WiFi** (BCM4390; connects and passes traffic, throughput not
+> measured, firmware from your own factory image). Not working yet:
+> Bluetooth, audio, modem, cameras, managed USB-C; charging from a PC port
+> barely keeps up; every boot still spends a slot-B retry. Stock Android 17
+> stays on slot A, but its data was wiped.**
 >
 > **Estado: Nura (edge) con la UI Phosh está instalado en `userdata` y arranca
-> en nuestra unidad desde el slot B (hito 3, 2026-11-25): pantalla con KMS
-> real y control de brillo, GPU Mali-G715 con Panthor y Mesa, táctil, lectura
-> del nivel de batería, `reboot bootloader` hasta fastboot, SSH por USB. Aún
-> no funcionan: WiFi, Bluetooth, audio, módem, cámaras ni USB-C gestionado;
-> desde un puerto de PC casi no carga; cada arranque sigue gastando un intento
-> del slot B. Android 17 stock sigue en el slot A, pero sus datos se
-> borraron.**
+> en nuestra unidad desde el slot B (hitos 3 y 4, 2026-11-25): pantalla con
+> KMS real y control de brillo, GPU Mali-G715 con Panthor y Mesa, táctil,
+> lectura del nivel de batería, `reboot bootloader` hasta fastboot, SSH por
+> USB y **WiFi** (BCM4390; conecta y pasa tráfico, velocidad sin medir,
+> firmware de tu propia imagen de fábrica). Aún no funcionan: Bluetooth,
+> audio, módem, cámaras ni USB-C gestionado; desde un puerto de PC casi no
+> carga; cada arranque sigue gastando un intento del slot B. Android 17 stock
+> sigue en el slot A, pero sus datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -76,6 +79,19 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   buttons. Nura reinstalled with Phosh: graphical login by touch,
   GPU-accelerated, zero failed units after a clean reboot.
   [docs/MILESTONE-3.md](docs/MILESTONE-3.md).
+- **Milestone 4 (2026-11-25): WiFi.** The chip is a Broadcom BCM4390 (WiFi
+  7 + Bluetooth, PCI `14e4:4438`, revision b1). Kernel package `pkgrel=3`:
+  patch 0012 powers the PCIe link (`pcie_1`, Gen3 x1, 16 MiB restricted DMA
+  pool) and patch 0013 adds the chip to `brcmfmac`, following Google's GPL
+  bcmdhd driver where it differs from the BCM4398. **0013 is not upstream
+  and has not been sent anywhere.** The firmware is proprietary and not in
+  this repository: you extract it from your own factory image and install it
+  with [`scripts/install-wifi-firmware.sh`](scripts/install-wifi-firmware.sh).
+  Result: `wlan0` at boot, scan on 2.4 and 5 GHz, WPA connection from
+  Phosh's settings, ping ~18 ms without loss, `apk update` over WiFi,
+  automatic reconnection. Throughput **not measured**; WiFi Direct most
+  likely broken; 6 GHz, WiFi 7, suspend, power saving and AP mode untried.
+  [docs/MILESTONE-4.md](docs/MILESTONE-4.md).
 - Android data: **lost** when `userdata` was flashed (expected). Slot A,
   bootloader, radio and `vbmeta` untouched.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -84,8 +100,9 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 - Known problems: the slot-B retry counter is spent on every boot and nothing
   marks the slot successful (after 3 boots the ABL falls back to slot A;
   `fastboot set_active b` beforehand; a marking tool ships as source only,
-  never used); no WiFi/Bluetooth (BCM4390, not supported by mainline
-  `brcmfmac`), audio, modem or cameras; no managed USB-C (a TCPC patch is
+  never used); no Bluetooth, audio, modem or cameras; WiFi limits as listed
+  above (warnings `Set join_pref error (-52)` and a failed P2P interface in
+  the log); no managed USB-C (a TCPC patch is
   prepared, not integrated); no verified button actions; power off untested;
   intermittent USB enumeration failures (`error -71`) on some boots;
   `buffyboard` had to be disabled by hand under Phosh (it injected phantom
@@ -94,7 +111,8 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next: slot-B retry counter, buttons, USB-C/charging, WiFi
+- Next: Bluetooth, measuring WiFi throughput, WiFi Direct (P2P), slot-B
+  retry counter, buttons, USB-C/charging
   ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
@@ -118,7 +136,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 | Touchscreen | **works** (Synaptics S3908, SPI; Phosh graphical login and use by touch); multitouch, palm rejection, accuracy and suspend/resume untested | described but disabled (PR #276) |
 | GPU (Mali-G715) | **works** (Panthor + Mesa 26.3.1, OpenGL ES 3.1; no measurements) | described but disabled (PR #276) |
 | USB Type-C / charging | charger **detected**, 500 mA from a PC port (barely charges); managed Type-C **not supported** | Type-C described but disabled (PR #276) |
-| WiFi | **not supported** (BCM4390, not in mainline `brcmfmac`) | described but disabled (PR #276) |
+| WiFi | **works** (BCM4390 through our `brcmfmac` patch 0013, not upstream; firmware from your own factory image); throughput not measured, P2P most likely broken, 6 GHz/WiFi 7/suspend untested | described but disabled (PR #276) |
 | Bluetooth | **not supported** | unknown |
 | Battery / fuel gauge | **works**, read-only (percentage, design capacity) | unknown |
 | Audio | **not supported** | unknown |
@@ -163,6 +181,10 @@ with appropriate scepticism.
   (`zumapro-komodo.dts`, not verified on hardware).
 - The Nura (postmarketOS) community, for pmbootstrap, pmaports and the
   gs101 (Pixel 6) groundwork.
+- Google's GPL-2.0 bcmdhd driver for the BCM4390
+  (`kernel/google-modules/wlan/bcmdhd/bcm4390` on android.googlesource.com),
+  the reference for patch 0013, which builds on the BCM4398/BCM4383 support
+  in the Omamobile kernel's `brcmfmac`.
 
 ### Following the project
 
@@ -235,6 +257,20 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   botones. Nura reinstalado con Phosh: login gráfico tocando, acelerado por
   GPU, cero unidades fallidas tras un reinicio limpio.
   [docs/MILESTONE-3.md](docs/MILESTONE-3.md).
+- **Hito 4 (2026-11-25): WiFi.** El chip es un Broadcom BCM4390 (WiFi 7 +
+  Bluetooth, PCI `14e4:4438`, revisión b1). Paquete del kernel `pkgrel=3`:
+  el parche 0012 enciende el enlace PCIe (`pcie_1`, Gen3 x1, pool DMA
+  restringido de 16 MiB) y el 0013 añade el chip a `brcmfmac`, siguiendo el
+  driver GPL bcmdhd de Google donde difiere del BCM4398. **El 0013 no está
+  en upstream ni se ha enviado a ningún sitio.** El firmware es propietario
+  y no está en este repositorio: lo sacas de tu propia imagen de fábrica y
+  lo instalas con
+  [`scripts/install-wifi-firmware.sh`](scripts/install-wifi-firmware.sh).
+  Resultado: `wlan0` al arrancar, escaneo en 2,4 y 5 GHz, conexión WPA
+  desde los ajustes de Phosh, ping de ~18 ms sin pérdidas, `apk update` por
+  WiFi, reconexión automática. Velocidad **sin medir**; WiFi Direct casi
+  seguro roto; 6 GHz, WiFi 7, suspensión, ahorro de energía y modo AP sin
+  probar. [docs/MILESTONE-4.md](docs/MILESTONE-4.md).
 - Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
   bootloader, radio y `vbmeta`, sin tocar.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -243,8 +279,9 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
   el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
   hacer antes `fastboot set_active b`; la herramienta para marcarlo va solo
-  como fuente, sin usar); sin WiFi/Bluetooth (BCM4390, sin soporte en el
-  `brcmfmac` de mainline), audio, módem ni cámaras; sin USB-C gestionado
+  como fuente, sin usar); sin Bluetooth, audio, módem ni cámaras; WiFi con
+  los límites de arriba (avisos `Set join_pref error (-52)` y fallo de la
+  interfaz P2P en el log); sin USB-C gestionado
   (parche del TCPC preparado, sin integrar); botones sin acción comprobada;
   apagado sin probar; fallos intermitentes de enumeración USB (`error -71`)
   en algunos arranques; bajo Phosh hubo que desactivar `buffyboard` a mano
@@ -253,7 +290,8 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   deja el sistema `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente: contador del slot B, botones, USB-C/carga, WiFi
+- Siguiente: Bluetooth, medir el rendimiento del WiFi, WiFi Direct (P2P),
+  contador del slot B, botones, USB-C/carga
   ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
@@ -275,8 +313,11 @@ control de brillo, sin 120 Hz ni reposo real del panel; GPU **funciona**
 de palma, precisión y suspensión/reanudación sin probar); botones
 **parcial**: sin acción comprobada bajo Phosh; batería **funciona** en solo
 lectura (porcentaje, capacidad de diseño); cargador **detectado**, 500 mA
-desde un USB de PC (casi no carga); USB-C gestionado, WiFi, Bluetooth, audio,
-módem y cámaras **sin soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
+desde un USB de PC (casi no carga); WiFi **funciona** (BCM4390 con nuestro
+parche 0013 de `brcmfmac`, sin enviar a upstream; firmware de tu propia
+imagen de fábrica; velocidad sin medir, P2P casi seguro roto, 6 GHz, WiFi 7
+y suspensión sin probar); USB-C gestionado, Bluetooth, audio, módem y
+cámaras **sin soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido
 salvo donde se indica. Matriz completa en [docs/STATUS.md](docs/STATUS.md).
 
@@ -304,8 +345,10 @@ tratar todo el contenido con el escepticismo apropiado.
 Omamobile y su fork de kernel linux-omarchy-mobile, renombrado después en
 GitHub a linux-omamobile (los enlaces antiguos redirigen) (PR #276, placa
 `komodo`); el trabajo de bring-up de `komodo` en el propio Omamobile (PR #914 y
-#567 de `derekross/omamobile`); Noxyntious/linux (rama `pixel9a`); y la
-comunidad de Nura (postmarketOS). Enlaces en la sección inglesa.
+#567 de `derekross/omamobile`); Noxyntious/linux (rama `pixel9a`); la
+comunidad de Nura (postmarketOS); y el driver GPL-2.0 bcmdhd de Google para el
+BCM4390, referencia del parche 0013, que se apoya en el soporte del
+BCM4398/BCM4383 del `brcmfmac` del kernel de Omamobile. Enlaces en la sección inglesa.
 
 ### Cómo seguir el proyecto
 

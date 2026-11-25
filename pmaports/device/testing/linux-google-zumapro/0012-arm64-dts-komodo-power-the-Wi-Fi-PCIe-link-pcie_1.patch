@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 20:00:00 +0000
+Subject: [PATCH 12/13] arm64: dts: komodo: power the Wi-Fi PCIe link (pcie_1)
+
+Enable WL_REG_ON (gph3-4, as output: function 1 like stock), pcie_1, its
+root port and PHY, and give the BCM4390 (14e4:4438) a 16 MiB
+restricted-dma-pool below 4 GiB, as tegu (Pixel 9a) does.
+
+Tested on komodo: with phy_zuma_pcie and pcie_gs201 loaded by hand the
+link trains at 8.0 GT/s x1 and 0000:01:00.0 [14e4:4438] class 0x028000
+rev 0x05 enumerates with the pool assigned. Until Wi-Fi is tested the phone
+keeps pcie_gs201 and brcmfmac blacklisted in /etc/modprobe.d.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts      |   21 ++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 9222002..77fdd70 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -63,7 +63,6 @@
+ 		startup-delay-us = <150000>;
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&komodo_wlan_reg_on_pins>;
+-		status = "disabled";
+ 	};
+ 
+ 	/* The phone reports package mode 0; Google's tuple identifies FOPLP. */
+@@ -163,6 +162,17 @@
+ 			alloc-ranges = <0x0 0xc4000000 0x10000000>;
+ 		};
+ 
++		/*
++		 * Every DMA buffer of the Wi-Fi chip comes from this pool, as on
++		 * tegu (Pixel 9a): driver bugs stay out of the rest of RAM.
++		 */
++		komodo_wifi_dma_pool: wifi-dma-pool {
++			compatible = "restricted-dma-pool";
++			size = <0x01000000>;
++			alignment = <0x0 0x00200000>;
++			alloc-ranges = <0x0 0x80000000 0x40000000>;
++		};
++
+ 	};
+ };
+ 
+@@ -344,7 +354,7 @@
+ 
+ 	komodo_wlan_reg_on_pins: wlan-reg-on-pins {
+ 		samsung,pins = "gph3-4";
+-		samsung,pin-function = <2>;
++		samsung,pin-function = <1>;
+ 		samsung,pin-pud = <0>;
+ 		samsung,pin-con-pdn = <3>;
+ 		samsung,pin-pud-pdn = <0>;
+@@ -486,7 +496,7 @@
+ };
+ 
+ &pcie_1 {
+-	status = "disabled";
++	status = "okay";
+ 	max-link-speed = <3>;
+ 
+ 	pcie@0,0 {
+@@ -500,19 +510,18 @@
+ 		vpcie3v3-supply = <&wlan_reg_on>;
+ 		aspm-no-l0s;
+ 		aspm-no-l1;
+-		status = "disabled";
+ 
+ 		wifi@0,0 {
+ 			compatible = "pci14e4,4438";
+ 			reg = <0x10000 0x0 0x0 0x0 0x0>;
+ 			brcm,board-type = "google,zumapro-komodo";
+-			status = "disabled";
++			memory-region = <&komodo_wifi_dma_pool>;
+ 		};
+ 	};
+ };
+ 
+ &pcie_1_phy {
+-	status = "disabled";
++	status = "okay";
+ };
+ 
+ /*

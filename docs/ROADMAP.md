@@ -139,7 +139,8 @@ sigue siendo lo principal pendiente.
     key presses; disabled by hand. Find what enables it and fix it in the
     packages. / `buffyboard.service` sigue activo bajo Phosh; averiguar qué
     lo habilita y corregirlo en los paquetes.
-- [ ] WiFi (Phase 5). / WiFi (fase 5).
+- [x] WiFi (Phase 5): **done in Milestone 4** (2026-11-25), with the limits
+  listed there. / WiFi (fase 5): **hecho en el hito 4**, con sus límites.
 - [ ] `systemd-firstboot.service` fails on the first boot of every new
   install (no input console) and leaves that boot `degraded`. / Falla en el
   primer arranque de cada instalación nueva y deja ese arranque `degraded`.
@@ -194,13 +195,30 @@ se pierde la raíz Linux.
 
 ## Phase 5 — WiFi and Bluetooth
 
-- [ ] BCM4390 WiFi over PCIe (`14e4:4438`): mainline `brcmfmac` does not
-  support the chip; it needs PCIe bring-up on `pcie_1` and `brcmfmac` work.
-  The firmware is Google's, with no redistribution license we know of, so
-  it will not be shipped here: it would have to come from each owner's own
-  factory image. / WiFi BCM4390: el `brcmfmac` de mainline no lo soporta; el
-  firmware no se distribuirá aquí.
-- [ ] Bluetooth (same BCM4390 combo). / Bluetooth (mismo combo BCM4390).
+- [x] BCM4390 WiFi over PCIe (`14e4:4438`): **done in Milestone 4
+  (2026-11-25)**, see [MILESTONE-4.md](MILESTONE-4.md). Patch 0012 brings up
+  `pcie_1` (Gen3 x1) and 0013 adds the chip to `brcmfmac` (not upstream, not
+  sent anywhere). The firmware is Google's, with no redistribution license we
+  know of, so it is not shipped here: each owner extracts it from their own
+  factory image (`scripts/install-wifi-firmware.sh`). Scan, WPA connection
+  from Phosh, Internet traffic, reconnection at boot. / WiFi BCM4390: **hecho
+  en el hito 4**; el firmware no se distribuye aquí.
+  - [ ] Measure throughput (e.g. `iperf3` against a host on the same
+    network) and latency under load. / Medir el rendimiento real.
+  - [ ] WiFi Direct (P2P): `p2p-dev-wlan0` is not created (timeout,
+    `err=-5`). / WiFi Direct: no se crea `p2p-dev-wlan0`.
+  - [ ] Understand `Set join_pref error (-52)` and the ignored channels
+    169/173/177. / Entender el error de `join_pref` y los canales ignorados.
+  - [ ] Try 6 GHz, WiFi 7 (EHT/MLO), access point mode, power saving and
+    suspend; check the regulatory domain. / Probar 6 GHz, WiFi 7, modo AP,
+    ahorro de energía, suspensión y dominio regulatorio.
+  - [ ] NVRAM chosen without reading the module's OTP; a stable per-phone
+    MAC instead of the template one. / NVRAM elegida sin leer la OTP; MAC
+    estable en lugar de la de plantilla.
+- [ ] Bluetooth (same BCM4390 combo, on the APM UART): **next**. Describe the
+  UART and its pins in the DTS, enable `CONFIG_BT_LE`/`CONFIG_BT_RFCOMM`,
+  firmware `.hcd` from the owner's factory image. / Bluetooth (mismo combo
+  BCM4390, por la UART del APM): **lo siguiente**.
 
 ## Phase 6 — Audio and sensors / Audio y sensores
 

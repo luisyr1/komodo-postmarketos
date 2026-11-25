@@ -136,6 +136,15 @@ payload*.bin
 /init_boot*
 /dtbo*
 
+# Proprietary WiFi/Bluetooth firmware (Milestone 4), at any depth: factory
+# names and the names brcmfmac asks for. / Firmware propietario WiFi/BT.
+fw_bcmdhd*
+bcmdhd*
+brcmfmac4*
+*.clm_blob
+*.txcap_blob
+*.hcd
+
 # Kernel / ramdisk artefacts, at any depth.
 **/initramfs
 /initramfs*

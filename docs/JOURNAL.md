@@ -662,3 +662,129 @@ se conservan como se compilaron. Nota de publicación: la línea `From:` de
 los 11 parches (también los 0001–0004 ya publicados) se normalizó a la
 identidad pública del proyecto y se actualizaron sus sumas en el APKBUILD;
 el contenido de los parches no cambia.
+
+---
+
+## 2026-11-25 — Milestone 4: WiFi (BCM4390) / Hito 4: WiFi (BCM4390)
+
+Procedure: [MILESTONE-4.md](MILESTONE-4.md). Kernel package
+`linux-google-zumapro` `pkgrel=3` (13 patches on commit `ffd33b7`) in
+[`../pmaports/device/testing/`](../pmaports/device/testing/); device package
+unchanged (`pkgrel=3`).
+
+What the chip is: a Broadcom BCM4390 (WiFi 7 + Bluetooth combo), not a
+BCM4398 as on the Pixel 8 Pro. The stock module `bcmdhd4390.ko`, the stock
+firmware names and the PCI ID `14e4:4438` agree. Mainline `brcmfmac` does
+not know it, and neither did the Omamobile tree.
+
+Phase (a), DTB only (patch 0012): `WL_REG_ON` on `gph3-4` (pin function 1
+as in stock, the board DTS had 2), `pcie_1` with its root port and PHY, and a
+16 MiB restricted DMA pool for the device, as Omamobile does on the Pixel 9a.
+Tested with a test image that changed only the DTB, with `pcie_gs201` and
+`brcmfmac` blacklisted on the phone: loading the controller driver stage by
+stage (`stop_after=0..5`, `trace=1`), all five stages passed at the first
+try; the link trained at Gen3 x1 (8.0 GT/s) at the first attempt; the device
+enumerated as `[14e4:4438]` class `0x028000`, PCI revision `0x05`, with the
+DMA pool assigned.
+
+Phase (b), `brcmfmac` (patch 0013): built on the BCM4398 support already in
+the Omamobile tree and checked against Google's GPL bcmdhd driver for the
+BCM4390 (`kernel/google-modules/wlan/bcmdhd/bcm4390`). Where bcmdhd treats
+the 4390 differently, 0013 follows it: RAM size fixed at 3276800 bytes, the
+PMU "PFM kickstart" for chip revisions 2 and 5, one firmware set per
+revision (`brcmfmac4390{a0,b0,b1}-pcie.google,zumapro-komodo.*`), optional
+scan MAC and SAQM power domains, BSS info versions 115/116. PCI revision
+`0x05` matches bcmdhd's naming for b1 (0 = a0, 2 = b0, 5 = b1); an earlier
+guess of ours (b1 = 2) was wrong. Firmware: the owner's own, extracted from
+the factory image of `CP4A.261105.040.A1` (`vendor.img`, `/vendor/firmware`)
+and not redistributed; installer published as
+[`../scripts/install-wifi-firmware.sh`](../scripts/install-wifi-firmware.sh)
+with the factory files' SHA-256 pinned. NVRAM: the USI module's
+(`USI_G6BB_6327_V27`), chosen without reading the OTP.
+
+The `pkgrel=3` kernel went in with `apk add` on the phone, and only
+`boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b` were reflashed, as in
+Milestone 3. With the blacklist still in place, loading `brcmfmac` by hand
+brought `wlan0` up at the first try. The driver's log (quoted in the
+procedure, from the later clean boot): PFM kickstart set, SYSMEM reported
+3276800 bytes (the same value bcmdhd fixes), the b1 firmware picked, and the
+firmware running (`27.10.1121.57.30 (b1 release24)`).
+
+Results on our unit:
+
+- **Scan:** networks on 2.4 and 5 GHz, WPA2 and WPA3 among them.
+- **Connection:** to a WPA network from Phosh's settings.
+- **Traffic:** ping to the Internet ~18 ms without loss; `apk update` works
+  over WiFi, without going through the PC.
+- **Clean boot without the blacklist:** PCIe link at ~5.7 s, firmware at
+  ~7.7 s, automatic reconnection, zero failed systemd units.
+
+Problems and limits:
+
+1. Throughput not measured. The only number is the advertised link rate of
+   270 Mbit/s on a 5 GHz channel.
+2. `Set join_pref error (-52)`, twice in the clean boot's log; not
+   investigated.
+3. `p2p-dev-wlan0` is not created (timeout, `err=-5`): WiFi Direct most
+   likely does not work.
+4. The firmware reports 5 GHz channels 169/173/177, which `brcmfmac`
+   ignores, and a burst of "unexpected monitor pkt" messages follows the
+   interface coming up. Not investigated.
+5. Not tried: 6 GHz, WiFi 7 (EHT/MLO), suspend, power saving, AP mode,
+   firmware crash recovery.
+6. The NVRAM carries a template MAC; NetworkManager uses a random one.
+7. Bluetooth: untouched (same chip, on a UART, not in our device tree yet).
+8. The commit messages of 0012 and 0013 still describe WiFi as untested and the modules as
+   blacklisted; they are kept as built, and the docs describe the current
+   state.
+
+Patch 0013 is not upstream and has not been sent anywhere. Like the rest of
+this repository it was written with AI assistance, so it is not meant for
+Nura or the kernel as is. It takes register addresses, values and the order
+of operations from bcmdhd (GPL-2.0), so it is GPL-2.0-only like the rest of
+the kernel package, not ISC like the `brcmfmac` files it touches.
+
+Publication note: as with 0001–0011, the `From:` line of 0012 and 0013 was
+normalised to the project's public author identity and the checksums in the
+APKBUILD were recomputed; the patch bodies are unchanged.
+
+Device state after this entry: Nura with Phosh on `userdata`, kernel package
+`pkgrel=3` and device package `pkgrel=3`, booting from slot B, WiFi firmware
+in `/lib/firmware/updates/brcm/`, no WiFi blacklist; `vbmeta_b` stock; slot A
+untouched.
+
+Resumen: hito 4, el WiFi funciona. El chip es un Broadcom BCM4390 (combo
+WiFi 7 + Bluetooth, PCI `14e4:4438`), no un BCM4398. Fase (a), solo DTB
+(parche 0012): `WL_REG_ON` en `gph3-4`, `pcie_1` con su puerto raíz y PHY, y
+un pool DMA restringido de 16 MiB; con el controlador cargado etapa a etapa
+(`stop_after=0..5`, `trace=1`) pasaron las cinco a la primera, enlace Gen3 x1
+(8,0 GT/s) al primer intento, dispositivo enumerado con revisión PCI `0x05`
+(= b1) y el pool asignado. Fase (b), `brcmfmac` (parche 0013): sobre el
+soporte del BCM4398 y contrastado con el driver GPL bcmdhd de Google para el
+4390: tamaño de RAM fijo de 3276800 bytes (SYSMEM daba lo mismo), "PFM
+kickstart" del PMU para las revisiones 2 y 5, firmware por revisión,
+dominios de potencia opcionales y BSS info v115/v116. Firmware del propio
+dueño (imagen de fábrica `CP4A.261105.040.A1`), sin redistribuir; el
+instalador se publica con los SHA-256 de los ficheros de fábrica. NVRAM del
+módulo USI elegida sin leer la OTP. Kernel `pkgrel=3` instalado con `apk
+add` en el teléfono, reflasheando solo `boot_b`, `vendor_boot_b` y
+`vendor_kernel_boot_b`. Resultado: `wlan0` al primer intento, firmware
+`27.10.1121.57.30 (b1 release24)`; escanea en 2,4 y 5 GHz (WPA2 y WPA3); se
+conecta a una red WPA desde los ajustes de Phosh; ping a Internet de ~18 ms
+sin pérdidas; `apk update` funciona. En un arranque limpio sin la lista
+negra: enlace PCIe a los ~5,7 s, firmware a los ~7,7 s, reconexión
+automática, cero unidades fallidas. Límites: velocidad sin medir (solo la
+tasa de enlace anunciada, 270 Mbit/s en 5 GHz); `Set join_pref error (-52)`;
+no se crea `p2p-dev-wlan0` (WiFi Direct casi seguro roto); canales
+169/173/177 ignorados y mensajes "unexpected monitor pkt", sin investigar;
+sin probar 6 GHz, WiFi 7, suspensión, ahorro de energía, modo AP ni
+recuperación tras un fallo del firmware; MAC de plantilla en la NVRAM
+(NetworkManager usa una aleatoria); Bluetooth sin tocar. Los mensajes de
+0012 y 0013 siguen diciendo que no está
+probado; se conservan como se compilaron. El parche 0013 no está en
+upstream ni se ha enviado, está hecho con asistencia de IA y, como toma
+direcciones, valores y el orden de operaciones de bcmdhd (GPL-2.0), es
+GPL-2.0-only como el resto del paquete del kernel. Nota de publicación: la
+línea `From:` de 0012 y 0013 se normalizó a la identidad pública del
+proyecto y se recalcularon las sumas del APKBUILD; el contenido de los
+parches no cambia.

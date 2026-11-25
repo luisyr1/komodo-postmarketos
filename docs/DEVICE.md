@@ -49,10 +49,13 @@ As of 2026-11-24. / A fecha de 2026-11-24.
 | Linux flashed | "display A" kernel variant images on the five slot-B boot partitions since 2026-11-24 (re-flashed 2026-11-25), replacing the Milestone 1 ones (`vbmeta_b` stock); restoring them to stock not recorded yet |
 
 *Later note (2026-11-25): the active slot is now B, with Nura (Phosh UI,
-Milestone 3) on `userdata` and the five slot-B images built from it; slot B
-is still never marked successful. See [STATUS.md](STATUS.md). / Nota
-posterior: el slot activo es ahora B, con Nura (UI Phosh, hito 3) en
-`userdata`; el slot B sigue sin marcarse como correcto.*
+Milestone 3) on `userdata` and the five slot-B images built from it; since
+Milestone 4, `boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b` carry the
+`pkgrel=3` kernel (WiFi). Slot B is still never marked successful. See
+[STATUS.md](STATUS.md). / Nota posterior: el slot activo es ahora B, con
+Nura (UI Phosh, hito 3) en `userdata`; desde el hito 4 `boot_b`,
+`vendor_boot_b` y `vendor_kernel_boot_b` llevan el kernel `pkgrel=3` (WiFi).
+El slot B sigue sin marcarse como correcto.*
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -155,7 +158,7 @@ Observado en el build anterior (Android 16 Beta); sin revisar en Android 17.
 |---|---|
 | Display panel | `google-km4`, as named by the bootloader (`exynos_drm.panel_name=google-km4.…`, verified on our unit); Android loaded the module `panel_boe_nt37290` on the previous stock build; a third-party bring-up names it `google,gs-km4` in Google's device tree |
 | Touchscreen | Synaptics S3908 over SPI, TouchComm (stock DTBO: `synaptics,tcm-spi` on `spi_20` = `spi@111d0000`, firmware suffix `S3908TG`); Android module `syna_touch` |
-| WiFi / Bluetooth | Broadcom BCM4390 combo (`bcmdhd4390`); WiFi on PCIe (`pcie_1`), ID `14e4:4438` (stock module aliases and our board DTS) |
+| WiFi / Bluetooth | Broadcom BCM4390 combo, WiFi 7 + Bluetooth (`bcmdhd4390`); WiFi on PCIe (`pcie_1`), ID `14e4:4438` (stock module aliases and our board DTS); Bluetooth on the APM UART (`serial@155d0000`, stock DTBO), firmware `BCM_200.hcd` in stock |
 | GPU | Arm Mali-G715 (Mesa under Nura: "Mali-G715 MC7") |
 | Charger / PMIC | MAX77779 family |
 | Audio amplifiers | Cirrus cs35l41 |
@@ -186,6 +189,28 @@ Phosh, 2026-11-25. / Nura con Phosh.
 
 Unique values (battery serials, MACs) are not recorded here. / Los valores
 únicos (series de batería, MAC) no se anotan aquí.
+
+## Seen from Linux (Milestone 4) / Visto desde Linux (hito 4)
+
+Kernel `7.3.0-rc6-zumapro` (`linux-google-zumapro` `pkgrel=3`), 2026-11-25.
+Procedure / Procedimiento: [MILESTONE-4.md](MILESTONE-4.md).
+
+| Item | Value |
+|---|---|
+| WiFi chip | Broadcom BCM4390 (chip ID `0x4390`), WiFi 7 + Bluetooth combo |
+| PCI | `0000:01:00.0`, `14e4:4438`, class `0x028000`, revision `0x05` |
+| Chip revision | 5 = **b1** (Broadcom's naming: 0 = a0, 2 = b0, 5 = b1); `brcmfmac` reports `BCM4390/5` |
+| PCIe host | `pcie_1` at `0x13120000` (`pcie_gs201`), root port `144d:eced`; PHY at `0x13160000` (`phy_zuma_pcie`) |
+| Link | Gen3 x1 (8.0 GT/s), up at the first training attempt |
+| Power / pins | `WL_REG_ON` = `gph3-4` (output, function 1 as in stock), the only power control (the module is fed from the system rail); PERST# `gph3-0`, CLKREQ `gph3-1` (stock DTBO) |
+| DMA | 16 MiB `restricted-dma-pool` (`wifi-dma-pool`) in `0x80000000`–`0xc0000000`, assigned to the device |
+| Device RAM | base `0x2a0000`, 3276800 bytes (`0x320000`); SYSMEM reports the same size |
+| Firmware | `27.10.1121.57.30 (b1 release24)` from the factory image (`fw_bcmdhd.bin_4390_b1`), NVRAM of the USI module (`USI_G6BB_6327_V27`), CLM and TxCap blobs |
+| Interface | `wlan0`, driver `brcmfmac`; bands 2.4 and 5 GHz used, 6 GHz not tried |
+
+The NVRAM's `macaddr` is a template value (Broadcom's `00:90:4c` prefix),
+not this unit's MAC. / El `macaddr` de la NVRAM es un valor de plantilla, no
+la MAC de esta unidad.
 
 ## Upstream status / Estado upstream
 

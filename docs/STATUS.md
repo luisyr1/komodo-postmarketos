@@ -31,6 +31,16 @@ Last updated / Última actualización: 2026-11-25
   failed units after a clean reboot. Still no WiFi/BT, audio, modem,
   cameras or managed USB-C; slot B retry counter unresolved.
   [MILESTONE-3.md](MILESTONE-3.md).
+- **Milestone 4: WiFi works** (2026-11-25): kernel `linux-google-zumapro`
+  `pkgrel=3` (patches 0012, `pcie_1` in the DTS, and 0013, the BCM4390 in
+  `brcmfmac`), installed with `apk add` on the phone and only `boot_b`,
+  `vendor_boot_b` and `vendor_kernel_boot_b` reflashed; device package
+  unchanged (`pkgrel=3`). Firmware from the owner's own factory image, not
+  redistributed. `wlan0` at boot, scan on 2.4 and 5 GHz, WPA connection from
+  Phosh's settings, Internet traffic, automatic reconnection; zero failed
+  units after a clean boot. Throughput not measured; WiFi Direct most likely
+  broken; 6 GHz, WiFi 7, suspend, power saving and AP mode untried.
+  Bluetooth untouched. [MILESTONE-4.md](MILESTONE-4.md).
 
 - Bootloader: **desbloqueado** (`verifiedbootstate` orange), slot activo B (Nura).
 - Ambos slots: Android 17 stock, `CP4A.261105.040.A1` (parche 2026-11-05),
@@ -58,6 +68,16 @@ Last updated / Última actualización: 2026-11-25
   `reboot bootloader` llega a fastboot. Login gráfico tocando; cero
   unidades fallidas tras un reinicio limpio. Sigue sin WiFi/BT, audio,
   módem, cámaras ni USB-C gestionado; contador del slot B sin resolver.
+- **Hito 4: el WiFi funciona** (2026-11-25): kernel `linux-google-zumapro`
+  `pkgrel=3` (parches 0012, `pcie_1` en el DTS, y 0013, el BCM4390 en
+  `brcmfmac`), instalado con `apk add` en el teléfono y reflasheando solo
+  `boot_b`, `vendor_boot_b` y `vendor_kernel_boot_b`; paquete del
+  dispositivo sin cambios (`pkgrel=3`). Firmware de la imagen de fábrica del
+  propio dueño, sin redistribuir. `wlan0` al arrancar, escaneo en 2,4 y
+  5 GHz, conexión WPA desde los ajustes de Phosh, tráfico a Internet y
+  reconexión automática; cero unidades fallidas tras un arranque limpio.
+  Velocidad sin medir; WiFi Direct casi seguro roto; 6 GHz, WiFi 7,
+  suspensión, ahorro de energía y modo AP sin probar. Bluetooth sin tocar.
 
 Details / Detalles: [DEVICE.md](DEVICE.md), [UNLOCK.md](UNLOCK.md).
 
@@ -105,6 +125,17 @@ GPU: el parche 0011 activa la Mali-G715; Panthor se carga solo desde el
 dispositivo `pkgrel=3` (antes estaba en lista negra, porque G3D no tiene
 driver de power domain y depende de que el bootloader lo deje encendido).
 
+WiFi: patch 0012 powers `pcie_1` (`WL_REG_ON` on `gph3-4`, a 16 MiB
+restricted DMA pool) and 0013 adds the BCM4390 to `brcmfmac`, following
+Google's GPL bcmdhd driver where the chip differs from the BCM4398. 0013 is
+not upstream and has not been sent anywhere. The firmware comes from the
+owner's own factory image and is installed with
+`scripts/install-wifi-firmware.sh`; this repository does not ship it. / WiFi:
+el parche 0012 enciende `pcie_1` y el 0013 añade el BCM4390 a `brcmfmac`,
+siguiendo el driver GPL bcmdhd de Google donde el chip difiere del BCM4398.
+0013 no está en upstream ni se ha enviado. El firmware sale de la imagen de
+fábrica del propio dueño y no se distribuye aquí.
+
 Known issue / Problema conocido (Milestone 3 / hito 3): `buffyboard.service`
 stayed enabled under Phosh and injected phantom key presses from the same
 touches (stray characters in the PIN); disabled by hand, cause of it being
@@ -139,8 +170,8 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 | Battery / fuel gauge | MAX77779 fuel gauge (`i2c@108d0000`, 0x36) | **works** (read-only) | unknown | Patch 0005: percentage and design capacity (5035 mAh) readable. Shunt value (2 mΩ) taken from the Pixel 9a reference, checked only against the design capacity (the stock DT gives 4942 mAh, about 2 % lower) |
 | Power off | — | untested | unknown | not tried under Nura |
 | CPU frequency | — | **works** | unknown | cpufreq (schedutil) under Nura; only `clk-acpm` and `gs101_acpm_tmu` load by modalias |
-| WiFi | BCM4390 (`bcmdhd4390`), PCIe `14e4:4438` | **not supported** | disabled upstream (PR #276) | Mainline `brcmfmac` does not support this chip; PCIe nodes still disabled in our kernel. Firmware is Google's, not redistributed |
-| Bluetooth | BCM4390 combo (per the stock firmware) | **not supported** | unknown | Not started |
+| WiFi | BCM4390 (`bcmdhd4390`), PCIe `14e4:4438`, chip revision b1 (PCI rev `0x05`) | **works** (throughput not measured) | disabled upstream (PR #276) | Milestone 4: patches 0012 (`pcie_1`, Gen3 x1 link, 16 MiB DMA pool) and 0013 (`brcmfmac`, not upstream). Firmware `27.10.1121.57.30` from the owner's own factory image, not redistributed. Scan on 2.4/5 GHz (WPA2, WPA3 seen), WPA connection from Phosh, ping ~18 ms without loss, automatic reconnection. Only an advertised link rate of 270 Mbit/s on 5 GHz; `Set join_pref error (-52)`; `p2p-dev-wlan0` not created (WiFi Direct most likely broken). Untested: 6 GHz, WiFi 7/EHT, suspend, power saving, AP mode. NVRAM chosen without reading the OTP; template MAC in it (NetworkManager randomises) |
+| Bluetooth | BCM4390 combo (per the stock firmware), UART | **not supported** | unknown | Not started; not described in our device tree |
 | Audio (amps/haptics) | cs35l41 / cs40l26 | **not supported** | unknown | Not started. AoC involved (unverified how) |
 | Sensors | unverified | untested | unknown | |
 | Modem / calls / SMS / data | unverified | **not supported** | unknown | Not started |

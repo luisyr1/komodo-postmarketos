@@ -8,7 +8,7 @@
 maintainer="komodo port <komodo@example.invalid>"
 pkgname=linux-google-zumapro
 pkgver=7.3_rc6
-pkgrel=2
+pkgrel=3
 pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
 arch="aarch64"
 _carch="arm64"
@@ -55,7 +55,11 @@ makedepends="
 # (0007, needs reboot=warm from device-google-komodo), KM4 panel brightness
 # (0008-0009, inert until gs_dsim_cmd.allow_tx=1), gs-decon hold_boot_fb
 # (0010) and the GPU node (0011; panthor autoloads since device-google-komodo
-# r3, it needs the CSF firmware from linux-firmware-arm).
+# r3, it needs the CSF firmware from linux-firmware-arm). Wi-Fi: 0012 powers
+# pcie_1 for the BCM4390 (Gen3 x1) and 0013 adds the BCM4390 to brcmfmac;
+# both tested on the phone (scan, WPA association, traffic), see
+# docs/MILESTONE-4.md. The firmware is the owner's own (vendor.img) and is
+# never packaged here; without it the modules load but there is no wlan0.
 _commit="ffd33b7ddc716eb3568fff9f8d337a4032d109eb"
 _config="config-$_flavor.$arch"
 source="
@@ -72,6 +76,8 @@ source="
 	0009-arm64-dts-komodo-DSIM0-as-a-DCS-command-host-for-the-KM4.patch
 	0010-drm-google-gs-decon-hold-komodo-s-boot-framebuffer-aperture.patch
 	0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
+	0012-arm64-dts-komodo-power-the-Wi-Fi-PCIe-link-pcie_1.patch
+	0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
 "
 builddir="$srcdir/linux-omamobile-$_commit"
 
@@ -127,4 +133,6 @@ ce33dae79ef81c7e2102f59915b61567065b05aaa095be1142cb4516dbf4abe414ec676a6b3dace5
 26ddb746ce61a7445c2c055e738fce1b2dffb7307fabc2124155577759691dbd74c40fa23c5267dd5531fc87afaec87ccf47d7be1f43d7a3a45ab5d9487010f0  0009-arm64-dts-komodo-DSIM0-as-a-DCS-command-host-for-the-KM4.patch
 163768f80a26d7860e7a644035d185e07b275ed79f942cd19e6ea23a81040971b582c93d3066bb70bfbf686866fcd2e4ed0b024b4d632cd9e2270704791e0839  0010-drm-google-gs-decon-hold-komodo-s-boot-framebuffer-aperture.patch
 7544b2cfc3a194816bf2732f2fb3e0e0ede9a79b14dcfd20ba488a0b050bc33df8678c24bb0dbc485dffa664b40f716a32f047d1b9467e75fb89bdbd85542fb2  0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
+1beca90b19948d971d9274ccb78362dcba4d7777b72fcf365508a5330db1b1f19711af893af5911d1ea396b5454b4d594c53214a148a04bd8177675c04ebd9bd  0012-arm64-dts-komodo-power-the-Wi-Fi-PCIe-link-pcie_1.patch
+9c00e942426f27c2c6b72874724af42e8f47b7eddc04bafea15fea3610a0dc9814b8d51cd75d7aae7a886012558e8f3e4233f1e96600a7b58673abe29872e8da  0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
 "
