@@ -449,8 +449,9 @@ Los comandos, las tablas completas y los hashes están en la sección inglesa.
    potencia opcionales y BSS info v115/v116. Licencia: los ficheros de
    `brcmfmac` son ISC en upstream, pero 0013 se escribió leyendo bcmdhd
    (GPL-2.0): trátalo como GPL-2.0-only, igual que todo el paquete del
-   kernel. Los mensajes de 0012 y 0013 y el comentario del `APKBUILD` dicen
-   todavía que no está probado: se conservan como se compilaron.
+   kernel. Los mensajes de 0012 y 0013 dicen todavía que no está probado:
+   se conservan como se compilaron (el comentario del `APKBUILD` ya está
+   corregido).
 4. **Firmware de tu propia imagen de fábrica:** la del build que tenga tu
    teléfono, de la página oficial de Google, con el hash comprobado. Saca
    `vendor.img` del zip interior; si es sparse, `simg2img`; en nuestro build

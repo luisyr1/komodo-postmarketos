@@ -3,12 +3,13 @@
 # (defconfig + omamobile.config + komodo-display.config), plus the options
 # pmbootstrap's kconfigcheck.toml asks for (see options=), resolved with
 # `make olddefconfig`. See docs/MILESTONE-2.md in this repository.
+# r4 adds BT_LE, BT_RFCOMM (=m) and BT_RFCOMM_TTY for BlueZ.
 # This package (patches and config included) is derived from the Linux
 # kernel: GPL-2.0-only, as license= says.
 maintainer="komodo port <komodo@example.invalid>"
 pkgname=linux-google-zumapro
 pkgver=7.3_rc6
-pkgrel=3
+pkgrel=4
 pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
 arch="aarch64"
 _carch="arm64"
@@ -60,6 +61,12 @@ makedepends="
 # both tested on the phone (scan, WPA association, traffic), see
 # docs/MILESTONE-4.md. The firmware is the owner's own (vendor.img) and is
 # never packaged here; without it the modules load but there is no wlan0.
+# Bluetooth: 0014 describes the BCM4390's Bluetooth on uart18 and 0015 gives
+# hci_bcm its 100 ms REG_ON delay; both tested on the phone (firmware patch
+# loaded, scan, pairing and connection from Phosh), see docs/MILESTONE-5.md.
+# hci_uart autoloads from the node at boot. brcm/BCM.<board>.hcd is the
+# owner's own (BCM_200.hcd from vendor.img), never packaged here; without it
+# hci0 should come up on the chip's ROM only (not tried).
 _commit="ffd33b7ddc716eb3568fff9f8d337a4032d109eb"
 _config="config-$_flavor.$arch"
 source="
@@ -78,6 +85,8 @@ source="
 	0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
 	0012-arm64-dts-komodo-power-the-Wi-Fi-PCIe-link-pcie_1.patch
 	0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
+	0014-arm64-dts-komodo-Bluetooth-BCM4390-on-the-APM-UART.patch
+	0015-Bluetooth-hci_bcm-add-the-BCM4390-Pixel-9-Pro-XL.patch
 "
 builddir="$srcdir/linux-omamobile-$_commit"
 
@@ -121,7 +130,7 @@ package() {
 # publishing (content unchanged), hence their checksums.
 sha512sums="
 c2e442abba3211fdd29c0a3b0851270c7b5fd2438f98226ad206c7d331c378d032ffb0187378605258754ba9af83775495439c1a3b13ee66f1701ec55f9c1d76  linux-google-zumapro-ffd33b7ddc716eb3568fff9f8d337a4032d109eb.tar.gz
-52bda980673a02fec48a212559a3148bfe7dad4c401d8383ff88537747e000f5df109b6585cd744936b66b2584bfadc2e6dc9cac724081c7c3c1390bc723f2b5  config-google-zumapro.aarch64
+1b5f63d8ed9a1e49c7a3750ac9b1e80a82abc23cee84010b8799c1bb826b66e824753ed7ff87da3ca01394f5505e2d2c54a0203e87b22c35a4efceaa8fe9b26d  config-google-zumapro.aarch64
 fa0b789ed868e969eb78c551efa86d2c362b175503bb119b66205bd6409a75ea6a5d9a0b82002d289ad68a854a9b9288e36fbfab97464d647498a8528ea144d9  0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
 63d7560633b7749e5169411a554a18d6296499600dfe9c314a424de49cffac9d0e5deb4acce080cda42ae54808beda7163341d92695130888064677d49704060  0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
 3a968afc965f90b020e6d091b60615dba1e321c944925636845d9a97feeec051c26b4800664d230bc1eecf51d68949ec8cbe70a6cbb2836a8fb0404ccefc353c  0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
@@ -135,4 +144,6 @@ ce33dae79ef81c7e2102f59915b61567065b05aaa095be1142cb4516dbf4abe414ec676a6b3dace5
 7544b2cfc3a194816bf2732f2fb3e0e0ede9a79b14dcfd20ba488a0b050bc33df8678c24bb0dbc485dffa664b40f716a32f047d1b9467e75fb89bdbd85542fb2  0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
 1beca90b19948d971d9274ccb78362dcba4d7777b72fcf365508a5330db1b1f19711af893af5911d1ea396b5454b4d594c53214a148a04bd8177675c04ebd9bd  0012-arm64-dts-komodo-power-the-Wi-Fi-PCIe-link-pcie_1.patch
 9c00e942426f27c2c6b72874724af42e8f47b7eddc04bafea15fea3610a0dc9814b8d51cd75d7aae7a886012558e8f3e4233f1e96600a7b58673abe29872e8da  0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
+366419d9062fc95ed6e7c7741f5b90fff8535ebb73394a54c2c049724454ba830f6c9c5651836e0110bb092364f2f2a0fcd69ae3470835ac80db4f743fba7543  0014-arm64-dts-komodo-Bluetooth-BCM4390-on-the-APM-UART.patch
+98df80bd321bd1172941fbb58bde00f96920958b1d3ebf8cbf4f696e748858e1747f8c6f9eaed02786aad35d3ee343b64764ef408d425119bb1c8c236acb24b3  0015-Bluetooth-hci_bcm-add-the-BCM4390-Pixel-9-Pro-XL.patch
 "

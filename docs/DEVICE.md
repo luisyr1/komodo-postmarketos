@@ -51,11 +51,13 @@ As of 2026-11-24. / A fecha de 2026-11-24.
 *Later note (2026-11-25): the active slot is now B, with Nura (Phosh UI,
 Milestone 3) on `userdata` and the five slot-B images built from it; since
 Milestone 4, `boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b` carry the
-`pkgrel=3` kernel (WiFi). Slot B is still never marked successful. See
+`pkgrel=3` kernel (WiFi), and since Milestone 5 the `pkgrel=4` kernel
+(Bluetooth). Slot B is still never marked successful. See
 [STATUS.md](STATUS.md). / Nota posterior: el slot activo es ahora B, con
 Nura (UI Phosh, hito 3) en `userdata`; desde el hito 4 `boot_b`,
-`vendor_boot_b` y `vendor_kernel_boot_b` llevan el kernel `pkgrel=3` (WiFi).
-El slot B sigue sin marcarse como correcto.*
+`vendor_boot_b` y `vendor_kernel_boot_b` llevan el kernel `pkgrel=3` (WiFi),
+y desde el hito 5 el `pkgrel=4` (Bluetooth). El slot B sigue sin marcarse
+como correcto.*
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -164,14 +166,18 @@ Observado en el build anterior (Android 16 Beta); sin revisar en Android 17.
 | Audio amplifiers | Cirrus cs35l41 |
 | Haptics | Cirrus cs40l26 |
 | Audio offload | AoC (Always-on Compute) |
+| Cameras | Front: Sony IMX858 (inferred: the stock camera HAL has a model ID function returning `0x0858`; ultra-wide and telephoto share the same stock codename). Main: a Samsung ISOCELL GN-series 50 MP sensor (the HAL's model ID is `0x08EF`; the exact commercial name is not settled). Read from the factory image only; no chip ID read on the phone yet |
 
 Panel: the bootloader identifies it as `google-km4` (verified 2026-11-24);
 `panel_boe_nt37290` was the module Android loaded. / Panel: el bootloader lo
 identifica como `google-km4` (verificado el 2026-11-24); `panel_boe_nt37290`
 era el módulo que cargaba Android.
 
-Not yet verified: modem details, sensors, cameras, NFC and fingerprint
-parts. / Sin verificar aún: módem, sensores, cámaras, NFC y huella.
+Not yet verified: modem details, sensors, NFC and fingerprint parts, and
+the camera sensors on the phone itself. / Sin verificar aún: módem,
+sensores, NFC y huella, ni los sensores de cámara en el propio teléfono
+(frontal Sony IMX858 y principal Samsung ISOCELL GN de 50 MP, deducidos del
+HAL de cámara de la imagen de fábrica).
 
 ## Seen from Linux (Milestone 3) / Visto desde Linux (hito 3)
 
@@ -211,6 +217,27 @@ Procedure / Procedimiento: [MILESTONE-4.md](MILESTONE-4.md).
 The NVRAM's `macaddr` is a template value (Broadcom's `00:90:4c` prefix),
 not this unit's MAC. / El `macaddr` de la NVRAM es un valor de plantilla, no
 la MAC de esta unidad.
+
+## Seen from Linux (Milestone 5) / Visto desde Linux (hito 5)
+
+Kernel `7.3.0-rc6-zumapro` (`linux-google-zumapro` `pkgrel=4`), 2026-11-25.
+Procedure / Procedimiento: [MILESTONE-5.md](MILESTONE-5.md).
+
+| Item | Value |
+|---|---|
+| Bluetooth chip | the Bluetooth half of the same BCM4390 combo; the ROM reports `BCM4390B1` (B1 silicon, matching the WiFi side), `chip id 200` |
+| UART | USI1 of the APM, `serial@155d0000` (stock `serial_18`); under Linux `ttySAC0`, serdev controller `serial0`, child `serial0-0` |
+| Driver | `hci_uart` (Broadcom protocol, `hci_bcm`) + `btbcm`; compatible `brcm,bcm4390-bt` with `brcm,bcm4389-bt` as fallback |
+| Link speed | 3 Mbaud (stock uses 4 Mbaud; not tried) |
+| Pins (stock DTBO) | `BT_REG_ON` `gpn8-0` behind a flip-flop clocked by `gpp24-3` (`brcm,ble-dbo`), `BT_DEV_WAKE` `gpn9-0`, `BT_HOST_WAKE` `gpa5-6` (rising edge, pulled down) |
+| Power-on delay | `BT_REG_ON` held low 100 ms before raising it (stock HAL value; patch 0015) |
+| Firmware | factory `BCM_200.hcd`, loaded as `brcm/BCM.google,zumapro-komodo.hcd`; ROM build `0000`, `0474` after the patch |
+| Interface | `hci0`; BlueZ powers it; LE roles central and peripheral |
+| Address | the chip's default address (generic, the same in every BCM4390 left unconfigured), not this unit's; the unit's real address has not been located |
+
+No Bluetooth address of this unit or of any other device is recorded here. /
+No se anota ninguna dirección Bluetooth de esta unidad ni de otros
+dispositivos.
 
 ## Upstream status / Estado upstream
 

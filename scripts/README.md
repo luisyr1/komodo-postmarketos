@@ -1,19 +1,21 @@
 # scripts/
 
 Build and flashing helpers for Milestone 1 (RAM-only Linux on slot B) and
-Milestone 2 (Nura on `userdata`), and the WiFi firmware installer of
-Milestone 4. The procedures that use them are in
-[../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
-[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md) and
-[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md); read
+Milestone 2 (Nura on `userdata`), and the firmware installers of
+Milestone 4 (WiFi) and Milestone 5 (Bluetooth). The procedures that use them
+are in [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
+[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md),
+[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md) and
+[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md); read
 [../docs/SAFETY.md](../docs/SAFETY.md) first. **No warranty.**
 
 Herramientas de build y flasheo del hito 1 (Linux solo en RAM en el slot B) y
-del hito 2 (Nura en `userdata`), y el instalador del firmware WiFi del hito 4.
-Los procedimientos están en
+del hito 2 (Nura en `userdata`), y los instaladores del firmware del hito 4
+(WiFi) y del hito 5 (Bluetooth). Los procedimientos están en
 [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
-[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md) y
-[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md); lee antes
+[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md),
+[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md) y
+[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md); lee antes
 [../docs/SAFETY.md](../docs/SAFETY.md). **Sin garantía.**
 
 Rules / Reglas:
@@ -104,8 +106,10 @@ escribe, se vacía o se lee para flashear: tiene que estar **dentro** de
 | `KOMODO_STOCK_ZIP` | `restore-slot-b-stock.sh` | `stock/image-komodo-cp4a.261105.040.a1.zip` |
 | `KOMODO_WIFI_FW_SRC` | `install-wifi-firmware.sh` (read only; refused if inside the repository / solo lectura; se rechaza si está dentro del repositorio) | `firmware/vendor-firmware` |
 | `KOMODO_WIFI_STAGE_DIR` (*) | `install-wifi-firmware.sh` (its `brcmfmac4390*` files are deleted and rebuilt / sus `brcmfmac4390*` se borran y se rehacen) | `build/wifi-fw` |
-| `KOMODO_SSH_HOST` | `install-wifi-firmware.sh` (copy and `--remove` only / solo para copiar y `--remove`) | **none / ninguno**: `<user>@172.16.43.1` |
-| `KOMODO_SSH_KEY` | `install-wifi-firmware.sh` | unset: ssh's own defaults / sin definir: lo que use ssh por defecto |
+| `KOMODO_BT_FW_SRC` | `install-bt-firmware.sh` (read only; refused if inside the repository / solo lectura; se rechaza si está dentro del repositorio) | `firmware/vendor-firmware/brcm` |
+| `KOMODO_BT_STAGE_DIR` (*) | `install-bt-firmware.sh` (its `BCM.google,zumapro-komodo.hcd` is deleted and rebuilt / su `BCM.google,zumapro-komodo.hcd` se borra y se rehace) | `build/bt-fw` |
+| `KOMODO_SSH_HOST` | `install-wifi-firmware.sh`, `install-bt-firmware.sh` (copy and `--remove` only / solo para copiar y `--remove`) | **none / ninguno**: `<user>@172.16.43.1` |
+| `KOMODO_SSH_KEY` | `install-wifi-firmware.sh`, `install-bt-firmware.sh` | unset: ssh's own defaults / sin definir: lo que use ssh por defecto |
 
 `verify-images.sh` and `mkimages-pmos.sh` create their temporary directory
 inside `KOMODO_WORK` and remove it on exit. / `verify-images.sh` y
@@ -137,6 +141,7 @@ borran al salir.
 | 6 | `restore-slot-b-stock.sh` | Same preflight; flashes the five `_b` boot partitions back to the stock images of `CP4A.261105.040.A1` (SHA-256 of the public factory image pinned, recomputed right before each `flash`). Asks for `RESTAURAR-B`. / Devuelve el slot B a stock. | **yes** |
 | 7 | `mkimages-pmos.sh` | **Milestone 2.** From `pmbootstrap export` (`vmlinuz`, `initramfs`, boot-deploy's `vendor_boot.img`, `google-komodo.img`): takes the Nura cmdline and DTB out of `vendor_boot.img`, checks it against the exported initramfs, the DTB `/soc_compatible` node and the initramfs contents (hook, UFS guard, `unudhcpd.conf`), recompresses the initramfs to lz4 legacy, and builds the five slot-B images with the same layout and AVB values as `mkimages.sh` (DTB and initramfs in `vendor_kernel_boot`). Then checks the root image (GPT with 4096-byte sectors, exactly `pmOS_boot` + `pmOS_root`, ext*, fits in `userdata`) and converts it to `google-komodo-sparse.img`, checking the round trip. Same tool pins as `mkimages.sh`. Never calls `fastboot`. Flashing is by hand, see [MILESTONE-2.md](../docs/MILESTONE-2.md). / Cinco imágenes del slot B y sparse de `userdata` a partir de `pmbootstrap export`. | no |
 | 8 | `install-wifi-firmware.sh` | **Milestone 4.** Takes the BCM4390 WiFi firmware **you** extracted from your own factory image (`vendor.img`, `/vendor/firmware`; nothing is downloaded or shipped), checks each file against the SHA-256 pinned for `CP4A.261105.040.A1`, stages it inside `KOMODO_WORK` under the names `brcmfmac` asks for (`brcmfmac4390{b1,b0,a0}-pcie.google,zumapro-komodo.{bin,txt,clm_blob,txcap_blob}`), copies it over SSH to `/lib/firmware/updates/brcm/` (asks for `sudo` on the phone) and checks the hashes there. Options `--dry-run`, `--only-b1`, `--nvram-ref`, `--mac`, `--remove`. Never touches modules, blacklists, boot partitions or `fastboot`, and never prints MAC addresses. / Prepara y copia al teléfono el firmware WiFi que tú sacaste de tu imagen de fábrica, con los hashes comprobados. | **yes** (files under `/lib/firmware/updates/brcm/` only) |
+| 9 | `install-bt-firmware.sh` | **Milestone 5.** Takes the BCM4390 Bluetooth firmware **you** extracted from your own factory image (`vendor.img`, `/vendor/firmware/brcm/BCM_200.hcd`; nothing is downloaded or shipped), checks it against the SHA-256 pinned for `CP4A.261105.040.A1`, stages it inside `KOMODO_WORK` as `BCM.google,zumapro-komodo.hcd` (the name `btbcm` asks for), copies it over SSH to `/lib/firmware/updates/brcm/` (asks for `sudo` on the phone) and checks the hash there. Options `--dry-run`, `--alt` (the factory `BCM.hcd` instead, an untried fallback), `--remove`. Never touches modules, blacklists, boot partitions or `fastboot`, and never reads, prints or sets Bluetooth addresses. / Prepara y copia al teléfono el firmware Bluetooth que tú sacaste de tu imagen de fábrica, con el hash comprobado. | **yes** (one file under `/lib/firmware/updates/brcm/` only) |
 
 Both flashing scripts tell a variable the bootloader does not have ("Variable
 not found", "unknown variable"…) apart from any other `fastboot` error, which

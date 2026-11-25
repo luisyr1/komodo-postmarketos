@@ -7,6 +7,34 @@ Las fases son secuenciales; una fase solo está "hecha" cuando se verifica en
 nuestra unidad y queda anotada en [JOURNAL.md](JOURNAL.md). Sin fechas
 comprometidas.
 
+## Next, in this order / Lo siguiente, en este orden
+
+As of 2026-11-25, after Milestone 5 (Bluetooth). / A fecha 2026-11-25, tras
+el hito 5 (Bluetooth).
+
+1. **Audio: speakers** (Phase 6). Not investigated yet. / **Audio:
+   altavoces** (fase 6). Sin investigar.
+2. **Microphone** (Phase 6). Not investigated yet. / **Micrófono** (fase 6).
+   Sin investigar.
+3. **A Bluetooth address of our own** (Phase 5): today the controller uses
+   the chip's generic default address. / **Dirección Bluetooth propia**
+   (fase 5): hoy el controlador usa la dirección por defecto, genérica, del
+   chip.
+4. **Cameras** (Phase 7): feasibility studied, plan below; no code yet. /
+   **Cámaras** (fase 7): viabilidad estudiada, plan abajo; aún sin código.
+5. **Easy unlock** (Phase 7): fingerprint, face and Bluetooth proximity, all
+   three in the long run. Not investigated yet; on Android the fingerprint
+   reader is driven from the secure world, and face unlock depends on the
+   front camera. / **Desbloqueo cómodo** (fase 7): huella, cara y
+   proximidad por Bluetooth, las tres a la larga. Sin investigar todavía;
+   en Android el lector de huella se maneja desde el mundo seguro, y la
+   cara depende de la cámara frontal.
+
+The open items of Phases 2b–5 (slot-B retry counter, buttons, charging,
+WiFi throughput…) stay open alongside. / Los pendientes de las fases 2b–5
+(contador del slot B, botones, carga, rendimiento del WiFi…) siguen
+abiertos en paralelo.
+
 ## Phase 0 — Unlock and backup / Desbloqueo y copia de seguridad
 
 Done on 2026-11-24; the backup was taken in Milestone 1. / Hecha el
@@ -141,6 +169,9 @@ sigue siendo lo principal pendiente.
     lo habilita y corregirlo en los paquetes.
 - [x] WiFi (Phase 5): **done in Milestone 4** (2026-11-25), with the limits
   listed there. / WiFi (fase 5): **hecho en el hito 4**, con sus límites.
+- [x] Bluetooth (Phase 5): **done in Milestone 5** (2026-11-25), with the
+  limits listed there. / Bluetooth (fase 5): **hecho en el hito 5**, con sus
+  límites.
 - [ ] `systemd-firstboot.service` fails on the first boot of every new
   install (no input console) and leaves that boot `degraded`. / Falla en el
   primer arranque de cada instalación nueva y deja ese arranque `degraded`.
@@ -215,19 +246,92 @@ se pierde la raíz Linux.
   - [ ] NVRAM chosen without reading the module's OTP; a stable per-phone
     MAC instead of the template one. / NVRAM elegida sin leer la OTP; MAC
     estable en lugar de la de plantilla.
-- [ ] Bluetooth (same BCM4390 combo, on the APM UART): **next**. Describe the
-  UART and its pins in the DTS, enable `CONFIG_BT_LE`/`CONFIG_BT_RFCOMM`,
-  firmware `.hcd` from the owner's factory image. / Bluetooth (mismo combo
-  BCM4390, por la UART del APM): **lo siguiente**.
+- [x] Bluetooth (same BCM4390 combo, on the APM UART): **done in
+  Milestone 5 (2026-11-25)**, see [MILESTONE-5.md](MILESTONE-5.md). Patch
+  0014 describes the UART, the power latch and the wake lines in the DTS;
+  0015 adds the BCM4390 to `hci_bcm` with a 100 ms power-on delay (neither
+  upstream nor sent anywhere); config with `BT_LE`, `BT_RFCOMM`,
+  `BT_RFCOMM_TTY`. The `.hcd` firmware is Google's and is not shipped here:
+  each owner extracts it from their own factory image
+  (`scripts/install-bt-firmware.sh`). Scan, pairing and connection with a
+  phone from Phosh, autoload at boot, WiFi working at the same time. /
+  Bluetooth: **hecho en el hito 5**; el firmware no se distribuye aquí.
+  - [ ] A proper Bluetooth address: the controller uses the chip's default
+    one, the same on every unconfigured BCM4390. Find where the unit's own
+    address comes from (where stock Android gets it has not been found)
+    or set a stable one at every boot (`btmgmt public-addr` or similar). /
+    Dirección propia: hoy usa la de por defecto del chip; localizar la de la
+    unidad o fijar una estable en cada arranque.
+  - [ ] Understand the seven `Failed to read codec capabilities (-22)`. /
+    Entender los avisos de capacidades de códec.
+  - [ ] Try profiles: HID (keyboard, mouse), A2DP once there is audio, PAN
+    tethering, file transfer. / Probar perfiles: HID, A2DP cuando haya audio,
+    compartir conexión, ficheros.
+  - [ ] Suspend and long idle (runtime PM over the wake lines), and the
+    stock 4 Mbaud link speed. / Suspensión y reposo prolongado, y los
+    4 Mbaud de fábrica.
 
 ## Phase 6 — Audio and sensors / Audio y sensores
 
-- [ ] Speakers/amps (cs35l41), haptics (cs40l26), AoC path.
-- [ ] Sensors.
+Not investigated yet: nothing below has been looked at on our unit. / Sin
+investigar: nada de lo de abajo se ha mirado aún en nuestra unidad.
+
+- [ ] Speakers/amps (cs35l41), AoC path: **next**. / Altavoces y
+  amplificadores, ruta del AoC: **lo siguiente**.
+- [ ] Microphones. / Micrófonos.
+- [ ] Haptics (cs40l26). / Vibración.
+- [ ] Sensors. / Sensores.
 
 ## Phase 7 — Modem, cameras, NFC, fingerprint / Módem, cámaras, NFC, huella
 
 - [ ] Modem (calls, SMS, data).
-- [ ] Cameras.
+- [ ] Cameras: feasibility studied on 2026-11-25 (desk research on the
+  factory image and on the Pixel 9a's work; nothing run on the phone). /
+  Cámaras: viabilidad estudiada el 2026-11-25 (estudio de la imagen de
+  fábrica y del trabajo del Pixel 9a; nada ejecutado en el teléfono).
+  - Sensors, from the stock camera HAL's model IDs, not yet read on the
+    phone: front **Sony IMX858**; main **Samsung ISOCELL GN-series, 50 MP**
+    (exact model not settled). / Sensores, según los ID de modelo del HAL
+    de fábrica y sin leer aún en el teléfono: frontal **Sony IMX858**;
+    principal **Samsung ISOCELL serie GN, 50 MP**.
+  - Why it looks feasible in **weeks** rather than months: the Pixel 9a
+    (`tegu`), with the same SoC, already gets images in Omamobile through
+    the Tensor CSI-2 receiver driver and libcamera's software ISP, and
+    `komodo`'s camera wiring is close to `tegu`'s. A rough guess: a few
+    weeks for the front camera, longer for the main one. / Por qué parece
+    viable en **semanas**: el Pixel 9a (mismo SoC) ya da imagen en
+    Omamobile con el receptor CSI-2 de Tensor y el soft-ISP de libcamera, y
+    el cableado de `komodo` se parece mucho; estimación gruesa: unas
+    semanas la frontal, más la principal.
+  - What is missing: Omamobile's `zumapro` camera changes are still open
+    pull requests, not merged and not in our tree; there are no drivers yet
+    for these two sensors; and the sensor and PHY register tables have to
+    be extracted from each owner's own phone (its camera HAL), since they
+    cannot be redistributed. / Falta: los cambios de cámara de `zumapro` en
+    Omamobile siguen en PR sin fusionar y no están en nuestro árbol; no hay
+    drivers para estos dos sensores; y las tablas de registros del sensor y
+    de la PHY hay que sacarlas del propio teléfono de cada dueño, porque no
+    se pueden redistribuir.
+  - Expected quality: **far below stock**. libcamera's software ISP, no
+    Google ISP, no HDR+ or computational photography. / Calidad esperada:
+    **muy inferior a la de stock**: soft-ISP de libcamera, sin el ISP de
+    Google ni su fotografía computacional.
+  - **Physical risk.** Powering the cameras means programming camera power
+    regulators, one of which can output far more than the sensors accept;
+    `komodo`'s voltages also differ from `tegu`'s, so a Pixel 9a device
+    tree must not be copied. A wrong value can damage the hardware. No
+    power-up procedure is published here until it has been checked on our
+    unit. / **Riesgo físico.** Encender las cámaras implica programar
+    reguladores de alimentación, uno de ellos capaz de dar mucha más
+    tensión de la que aguantan los sensores, y las tensiones de `komodo` no
+    son las del Pixel 9a: no se debe copiar su device tree. Un valor
+    erróneo puede dañar el hardware. No se publica ningún procedimiento de
+    encendido hasta comprobarlo en nuestra unidad.
+  - Plan: bring in the `zumapro` camera support once it is merged in
+    Omamobile, first read the front sensor's chip ID only, then raw capture,
+    then libcamera; front camera first, main camera after. / Plan: traer el
+    soporte de cámara de `zumapro` cuando entre en Omamobile, leer primero
+    solo el chip ID del sensor frontal, luego captura en bruto y después
+    libcamera; primero la frontal, luego la principal.
 - [ ] NFC.
 - [ ] Fingerprint reader.

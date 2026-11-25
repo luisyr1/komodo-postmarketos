@@ -788,3 +788,125 @@ GPL-2.0-only como el resto del paquete del kernel. Nota de publicación: la
 línea `From:` de 0012 y 0013 se normalizó a la identidad pública del
 proyecto y se recalcularon las sumas del APKBUILD; el contenido de los
 parches no cambia.
+
+---
+
+## 2026-11-25 — Milestone 5: Bluetooth (BCM4390) / Hito 5: Bluetooth (BCM4390)
+
+Procedure: [MILESTONE-5.md](MILESTONE-5.md). Kernel package
+`linux-google-zumapro` `pkgrel=4` (15 patches on commit `ffd33b7`) in
+[`../pmaports/device/testing/`](../pmaports/device/testing/); device package
+unchanged (`pkgrel=3`).
+
+The Bluetooth half of the same BCM4390 sits on the APM's UART
+(`serial@155d0000`, stock `serial_18`), as the stock DTBO (entry 34)
+describes it: `BT_REG_ON` on `gpn8-0` behind a flip-flop clocked by
+`gpp24-3` (the same latch the Pixel 9a and the Pixel 8 Pro use, which
+`hci_bcm` already drives through `brcm,ble-dbo`), `BT_DEV_WAKE` on
+`gpn9-0`, `BT_HOST_WAKE` on `gpa5-6`. Patch 0014 describes all of that in
+the DTS, checked pin by pin against the stock DTB and DTBO, and enables the
+clock and pin controllers it needs. It sets no pinctrl on the UART pads:
+stock has none, and the pads zuma's `uart18_bus` would claim carry another
+function on `komodo`. It starts at 3 Mbaud, as on the Pixel 9a; stock runs
+the link at 4 Mbaud. Patch 0015 adds `brcm,bcm4390-bt` to `hci_bcm` with a
+100 ms `BT_REG_ON` power-on delay, the value the stock Bluetooth HAL insists
+on (the BCM4389 entry, kept as the fallback compatible, uses 30 ms). The
+config gains `BT_LE=y`, `BT_RFCOMM=m` and `BT_RFCOMM_TTY=y`.
+
+Firmware: the owner's own, from the factory image of `CP4A.261105.040.A1`
+(`vendor.img`, `/vendor/firmware/brcm/BCM_200.hcd`, the file the stock HAL
+loads), installed as `brcm/BCM.google,zumapro-komodo.hcd`, the name `btbcm`
+asks for. Not redistributed; installer published as
+[`../scripts/install-bt-firmware.sh`](../scripts/install-bt-firmware.sh)
+with the factory file's SHA-256 pinned.
+
+First boot of the `pkgrel=4` kernel with `hci_uart` blacklisted, then
+`modprobe hci_uart` by hand. It worked at the first attempt: the ROM
+answered (`chip id 200`, `BCM4390B1`, build `0000`), the firmware patch
+downloaded in about 4 s and the controller came back as build `0474`;
+`hci0` registered and BlueZ powered it (`Powered: yes`, LE roles central and
+peripheral). A 12 s scan saw 16 devices. From Phosh's Bluetooth settings the
+phone paired and connected with another phone, while WiFi stayed connected.
+Then the blacklist was removed and the phone rebooted: Bluetooth came up by
+itself about 10 s into the boot, the pairing was still there, and no
+systemd unit failed.
+
+Problems and limits:
+
+1. The controller runs with the chip's default address, a generic value
+   shared by every BCM4390 nobody configured. This unit's real address has
+   not been located; it needs to be given one (`btmgmt public-addr` or
+   similar, at every boot). Pending.
+2. Seven `Failed to read codec capabilities (-22)` right after the firmware
+   loads. Pairing and connecting work anyway; not investigated.
+3. Bluetooth audio cannot be tested: the phone has no audio yet.
+4. Not tried: suspend and long idle, specific profiles (HID, A2DP,
+   tethering), 4 Mbaud, throughput and range.
+5. The commit messages of 0014 and 0015 still say they are untested and
+   that `hci_uart` should stay blacklisted; they are kept as built, and the
+   docs describe the current state. The APKBUILD comment now says both are
+   tested.
+
+Patches 0014 and 0015 are not upstream and have not been sent anywhere.
+Like the rest of this repository they were written with AI assistance, so
+they are not meant for Nura or the kernel as is.
+
+Publication note: as with 0001–0013, the `From:` line of 0014 and 0015 was
+normalised to the project's public author identity and the checksums in the
+APKBUILD were recomputed; the patch bodies are unchanged.
+
+Roadmap after this entry, in order: audio (speakers), microphone, a
+Bluetooth address of our own, cameras. Audio and microphone are not
+investigated yet. For the cameras a desk study was made (no code, nothing
+run on the phone): front Sony IMX858 and main Samsung ISOCELL GN-series
+50 MP according to the stock camera HAL; feasible in weeks because the
+Pixel 9a, with the same SoC, already gets images in Omamobile with
+libcamera's software ISP; still missing are Omamobile's `zumapro` camera
+changes (open pull requests, not merged), drivers for these sensors, and
+register tables that have to be extracted from each owner's phone and
+cannot be redistributed; quality far below stock; and a physical risk from
+the camera power rails, so no power-up procedure will be published until it
+has been checked. See [ROADMAP.md](ROADMAP.md).
+
+Device state after this entry: Nura with Phosh on `userdata`, kernel package
+`pkgrel=4` and device package `pkgrel=3`, booting from slot B, WiFi and
+Bluetooth firmware in `/lib/firmware/updates/brcm/`, no WiFi or Bluetooth
+blacklist; `vbmeta_b` stock; slot A untouched.
+
+Resumen: hito 5, el Bluetooth funciona. La mitad Bluetooth del mismo
+BCM4390 va por la UART del APM (`serial@155d0000`), como la describe el
+DTBO de fábrica: `BT_REG_ON` en `gpn8-0` tras un biestable con reloj en
+`gpp24-3`, `BT_DEV_WAKE` en `gpn9-0` y `BT_HOST_WAKE` en `gpa5-6`. El parche
+0014 lo describe en el DTS (comprobado pin a pin contra el DTB y el DTBO de
+fábrica), sin pinctrl en los pads de la UART y a 3 Mbaud (fábrica usa 4); el
+0015 añade `brcm,bcm4390-bt` a `hci_bcm` con 100 ms de retardo de
+encendido, el valor del HAL de fábrica (`brcm,bcm4389-bt` queda de
+respaldo). La config activa `BT_LE`, `BT_RFCOMM` (módulo) y
+`BT_RFCOMM_TTY`. Firmware del propio dueño (`BCM_200.hcd` de la imagen de
+fábrica `CP4A.261105.040.A1`) instalado como
+`brcm/BCM.google,zumapro-komodo.hcd`, sin redistribuir; el instalador se
+publica con el SHA-256 fijado. Primer arranque con `hci_uart` en lista
+negra y carga a mano: al primer intento, `chip id 200`, `BCM4390B1`, ROM
+build `0000`, parche cargado en unos 4 s, build `0474`, `hci0` registrado y
+encendido por BlueZ (roles LE central y periférico); un escaneo de 12 s vio
+16 dispositivos; emparejado y conectado con un teléfono desde los ajustes de
+Phosh con el WiFi conectado a la vez. Sin la lista negra y tras reiniciar,
+sube solo a los ~10 s, el emparejamiento persiste y no falla ninguna
+unidad. Límites: dirección por defecto (genérica) del chip, la real de la
+unidad sin localizar (hay que darle una con `btmgmt public-addr` o
+similar); siete avisos `Failed to read codec capabilities (-22)`; audio por
+Bluetooth imposible de probar; sin probar suspensión, reposo prolongado,
+perfiles (HID, A2DP, compartir conexión), 4 Mbaud, rendimiento ni alcance.
+Los mensajes de 0014 y 0015 siguen diciendo que no están probados; se
+conservan como se compilaron. No están en upstream ni se han enviado, y
+están hechos con asistencia de IA. Nota de publicación: la línea `From:` de
+0014 y 0015 se normalizó a la identidad pública del proyecto y se
+recalcularon las sumas del APKBUILD. Hoja de ruta, en este orden: audio
+(altavoces), micrófono (los dos sin investigar), dirección Bluetooth propia
+y cámaras (estudio de viabilidad sin código: frontal Sony IMX858 y
+principal Samsung ISOCELL GN de 50 MP; viable en semanas porque el Pixel 9a,
+con el mismo SoC, ya da imagen en Omamobile con el soft-ISP de libcamera;
+faltan los cambios de `zumapro` aún sin fusionar allí, drivers de sensor y
+tablas que hay que sacar del propio teléfono y no se pueden redistribuir;
+calidad muy inferior a la de stock; riesgo físico por las tensiones de
+alimentación, así que no se publica ningún procedimiento de encendido).

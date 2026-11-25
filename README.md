@@ -1,24 +1,27 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
 > **Status: Nura (edge) with the Phosh UI is installed on `userdata` and boots
-> on our unit from slot B (Milestones 3 and 4, 2026-11-25): real KMS display
+> on our unit from slot B (Milestones 3 to 5, 2026-11-25): real KMS display
 > with brightness control, Mali-G715 GPU through Panthor and Mesa,
 > touchscreen, battery level readout, `reboot bootloader` to fastboot, SSH
-> over USB, and **WiFi** (BCM4390; connects and passes traffic, throughput not
-> measured, firmware from your own factory image). Not working yet:
-> Bluetooth, audio, modem, cameras, managed USB-C; charging from a PC port
-> barely keeps up; every boot still spends a slot-B retry. Stock Android 17
-> stays on slot A, but its data was wiped.**
+> over USB, **WiFi** (BCM4390; connects and passes traffic, throughput not
+> measured) and **Bluetooth** (same chip; scans, pairs and connects, but
+> with the chip's generic default address); firmware for both from your own
+> factory image. Not working yet: audio, microphone, modem, cameras, managed
+> USB-C; charging from a PC port barely keeps up; every boot still spends a
+> slot-B retry. Stock Android 17 stays on slot A, but its data was wiped.**
 >
 > **Estado: Nura (edge) con la UI Phosh está instalado en `userdata` y arranca
-> en nuestra unidad desde el slot B (hitos 3 y 4, 2026-11-25): pantalla con
+> en nuestra unidad desde el slot B (hitos 3 a 5, 2026-11-25): pantalla con
 > KMS real y control de brillo, GPU Mali-G715 con Panthor y Mesa, táctil,
 > lectura del nivel de batería, `reboot bootloader` hasta fastboot, SSH por
-> USB y **WiFi** (BCM4390; conecta y pasa tráfico, velocidad sin medir,
-> firmware de tu propia imagen de fábrica). Aún no funcionan: Bluetooth,
-> audio, módem, cámaras ni USB-C gestionado; desde un puerto de PC casi no
-> carga; cada arranque sigue gastando un intento del slot B. Android 17 stock
-> sigue en el slot A, pero sus datos se borraron.**
+> USB, **WiFi** (BCM4390; conecta y pasa tráfico, velocidad sin medir) y
+> **Bluetooth** (mismo chip; escanea, empareja y conecta, pero con la
+> dirección por defecto, genérica, del chip); el firmware de ambos, de tu
+> propia imagen de fábrica. Aún no funcionan: audio, micrófono, módem,
+> cámaras ni USB-C gestionado; desde un puerto de PC casi no carga; cada
+> arranque sigue gastando un intento del slot B. Android 17 stock sigue en el
+> slot A, pero sus datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -92,6 +95,23 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   automatic reconnection. Throughput **not measured**; WiFi Direct most
   likely broken; 6 GHz, WiFi 7, suspend, power saving and AP mode untried.
   [docs/MILESTONE-4.md](docs/MILESTONE-4.md).
+- **Milestone 5 (2026-11-25): Bluetooth.** The Bluetooth half of the same
+  BCM4390, on the APM's UART. Kernel package `pkgrel=4`: patch 0014
+  describes the UART, the power latch and the wake lines in the DTS, and
+  0015 adds the chip to `hci_bcm` with the stock HAL's 100 ms power-on
+  delay; the config adds `BT_LE`, `BT_RFCOMM` and `BT_RFCOMM_TTY`. **0014
+  and 0015 are not upstream and have not been sent anywhere.** The firmware
+  (`BCM_200.hcd`) is proprietary and not in this repository: you extract it
+  from your own factory image and install it with
+  [`scripts/install-bt-firmware.sh`](scripts/install-bt-firmware.sh).
+  Result: `hci0` powered by BlueZ, a 12 s scan saw 16 devices, pairing and
+  connection with a phone from Phosh's settings with WiFi connected at the
+  same time, autoload at boot (~10 s), pairing kept across reboots. The
+  controller uses the chip's **default address** (generic, the same on
+  every unconfigured BCM4390), seven `Failed to read codec capabilities
+  (-22)` warnings; Bluetooth audio untestable (no audio yet); suspend,
+  profiles (HID, A2DP, tethering) and 4 Mbaud untried.
+  [docs/MILESTONE-5.md](docs/MILESTONE-5.md).
 - Android data: **lost** when `userdata` was flashed (expected). Slot A,
   bootloader, radio and `vbmeta` untouched.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -100,8 +120,8 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 - Known problems: the slot-B retry counter is spent on every boot and nothing
   marks the slot successful (after 3 boots the ABL falls back to slot A;
   `fastboot set_active b` beforehand; a marking tool ships as source only,
-  never used); no Bluetooth, audio, modem or cameras; WiFi limits as listed
-  above (warnings `Set join_pref error (-52)` and a failed P2P interface in
+  never used); no audio, microphone, modem or cameras; WiFi and Bluetooth
+  limits as listed above (warnings `Set join_pref error (-52)` and a failed P2P interface in
   the log); no managed USB-C (a TCPC patch is
   prepared, not integrated); no verified button actions; power off untested;
   intermittent USB enumeration failures (`error -71`) on some boots;
@@ -111,9 +131,10 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next: Bluetooth, measuring WiFi throughput, WiFi Direct (P2P), slot-B
-  retry counter, buttons, USB-C/charging
-  ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Next, in this order: audio (speakers), microphone, a Bluetooth address of
+  our own, cameras (feasibility studied: likely weeks of work, quality far
+  below stock); the slot-B retry counter, buttons, USB-C/charging and WiFi
+  throughput stay open ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
 an earlier stock build); a third-party bring-up names it `google,gs-km4`. On
@@ -137,7 +158,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 | GPU (Mali-G715) | **works** (Panthor + Mesa 26.3.1, OpenGL ES 3.1; no measurements) | described but disabled (PR #276) |
 | USB Type-C / charging | charger **detected**, 500 mA from a PC port (barely charges); managed Type-C **not supported** | Type-C described but disabled (PR #276) |
 | WiFi | **works** (BCM4390 through our `brcmfmac` patch 0013, not upstream; firmware from your own factory image); throughput not measured, P2P most likely broken, 6 GHz/WiFi 7/suspend untested | described but disabled (PR #276) |
-| Bluetooth | **not supported** | unknown |
+| Bluetooth | **works** (BCM4390 on the APM UART through our patches 0014–0015, not upstream; firmware from your own factory image); chip's generic default address, audio/profiles/suspend untested | unknown |
 | Battery / fuel gauge | **works**, read-only (percentage, design capacity) | unknown |
 | Audio | **not supported** | unknown |
 | Sensors | untested | unknown |
@@ -185,6 +206,9 @@ with appropriate scepticism.
   (`kernel/google-modules/wlan/bcmdhd/bcm4390` on android.googlesource.com),
   the reference for patch 0013, which builds on the BCM4398/BCM4383 support
   in the Omamobile kernel's `brcmfmac`.
+- The Pixel 9a (`tegu`) and Pixel 8 Pro Bluetooth work in the Omamobile
+  kernel (`hci_bcm` with the `brcm,ble-dbo` latch), on which patches
+  0014–0015 build.
 
 ### Following the project
 
@@ -271,6 +295,24 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   WiFi, reconexión automática. Velocidad **sin medir**; WiFi Direct casi
   seguro roto; 6 GHz, WiFi 7, suspensión, ahorro de energía y modo AP sin
   probar. [docs/MILESTONE-4.md](docs/MILESTONE-4.md).
+- **Hito 5 (2026-11-25): Bluetooth.** La mitad Bluetooth del mismo BCM4390,
+  por la UART del APM. Paquete del kernel `pkgrel=4`: el parche 0014
+  describe en el DTS la UART, el biestable de encendido y las líneas de
+  wake, y el 0015 añade el chip a `hci_bcm` con el retardo de encendido de
+  100 ms del HAL de fábrica; la config añade `BT_LE`, `BT_RFCOMM` y
+  `BT_RFCOMM_TTY`. **0014 y 0015 no están en upstream ni se han enviado a
+  ningún sitio.** El firmware (`BCM_200.hcd`) es propietario y no está en
+  este repositorio: lo sacas de tu propia imagen de fábrica y lo instalas
+  con [`scripts/install-bt-firmware.sh`](scripts/install-bt-firmware.sh).
+  Resultado: `hci0` encendido por BlueZ, un escaneo de 12 s vio 16
+  dispositivos, emparejamiento y conexión con un teléfono desde los ajustes
+  de Phosh con el WiFi conectado a la vez, carga automática al arrancar
+  (~10 s) y emparejamiento conservado tras reiniciar. El controlador usa la
+  **dirección por defecto** del chip (genérica, igual en todo BCM4390 sin
+  configurar); siete avisos `Failed to read codec capabilities (-22)`;
+  audio por Bluetooth imposible de probar (aún no hay audio); suspensión,
+  perfiles (HID, A2DP, compartir conexión) y 4 Mbaud sin probar.
+  [docs/MILESTONE-5.md](docs/MILESTONE-5.md).
 - Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
   bootloader, radio y `vbmeta`, sin tocar.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -279,8 +321,8 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
   el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
   hacer antes `fastboot set_active b`; la herramienta para marcarlo va solo
-  como fuente, sin usar); sin Bluetooth, audio, módem ni cámaras; WiFi con
-  los límites de arriba (avisos `Set join_pref error (-52)` y fallo de la
+  como fuente, sin usar); sin audio, micrófono, módem ni cámaras; WiFi y
+  Bluetooth con los límites de arriba (avisos `Set join_pref error (-52)` y fallo de la
   interfaz P2P en el log); sin USB-C gestionado
   (parche del TCPC preparado, sin integrar); botones sin acción comprobada;
   apagado sin probar; fallos intermitentes de enumeración USB (`error -71`)
@@ -290,8 +332,10 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   deja el sistema `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente: Bluetooth, medir el rendimiento del WiFi, WiFi Direct (P2P),
-  contador del slot B, botones, USB-C/carga
+- Siguiente, en este orden: audio (altavoces), micrófono, dirección
+  Bluetooth propia y cámaras (viabilidad estudiada: probablemente semanas
+  de trabajo, calidad muy inferior a la de stock); siguen abiertos el
+  contador del slot B, los botones, USB-C/carga y el rendimiento del WiFi
   ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
@@ -316,7 +360,10 @@ lectura (porcentaje, capacidad de diseño); cargador **detectado**, 500 mA
 desde un USB de PC (casi no carga); WiFi **funciona** (BCM4390 con nuestro
 parche 0013 de `brcmfmac`, sin enviar a upstream; firmware de tu propia
 imagen de fábrica; velocidad sin medir, P2P casi seguro roto, 6 GHz, WiFi 7
-y suspensión sin probar); USB-C gestionado, Bluetooth, audio, módem y
+y suspensión sin probar); Bluetooth **funciona** (BCM4390 por la UART del
+APM con nuestros parches 0014–0015, sin enviar a upstream; firmware de tu
+propia imagen de fábrica; dirección por defecto genérica del chip; audio,
+perfiles y suspensión sin probar); USB-C gestionado, audio, módem y
 cámaras **sin soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido
 salvo donde se indica. Matriz completa en [docs/STATUS.md](docs/STATUS.md).
@@ -348,7 +395,10 @@ GitHub a linux-omamobile (los enlaces antiguos redirigen) (PR #276, placa
 #567 de `derekross/omamobile`); Noxyntious/linux (rama `pixel9a`); la
 comunidad de Nura (postmarketOS); y el driver GPL-2.0 bcmdhd de Google para el
 BCM4390, referencia del parche 0013, que se apoya en el soporte del
-BCM4398/BCM4383 del `brcmfmac` del kernel de Omamobile. Enlaces en la sección inglesa.
+BCM4398/BCM4383 del `brcmfmac` del kernel de Omamobile; y el trabajo de
+Bluetooth del Pixel 9a (`tegu`) y del Pixel 8 Pro en el kernel de Omamobile
+(`hci_bcm` con el biestable `brcm,ble-dbo`), base de los parches 0014–0015.
+Enlaces en la sección inglesa.
 
 ### Cómo seguir el proyecto
 

@@ -41,6 +41,19 @@ Last updated / Última actualización: 2026-11-25
   units after a clean boot. Throughput not measured; WiFi Direct most likely
   broken; 6 GHz, WiFi 7, suspend, power saving and AP mode untried.
   Bluetooth untouched. [MILESTONE-4.md](MILESTONE-4.md).
+- **Milestone 5: Bluetooth works** (2026-11-25): kernel
+  `linux-google-zumapro` `pkgrel=4` (patches 0014, the BCM4390's Bluetooth
+  on the APM UART in the DTS, and 0015, the BCM4390 in `hci_bcm`; config
+  with `BT_LE`, `BT_RFCOMM` and `BT_RFCOMM_TTY`); device package unchanged
+  (`pkgrel=3`). Firmware `BCM_200.hcd` from the owner's own factory image,
+  not redistributed. `hci0` powered by BlueZ, a 12 s scan saw 16 devices,
+  paired and connected with a phone from Phosh's settings with WiFi still
+  connected; after a reboot it comes up by itself (~10 s), the pairing
+  persists, zero failed units. Limits: the chip's default (generic)
+  address, seven `Failed to read codec capabilities (-22)` warnings,
+  Bluetooth audio untestable (no audio yet); suspend, long idle, profiles
+  (HID, A2DP, tethering) and 4 Mbaud untried.
+  [MILESTONE-5.md](MILESTONE-5.md).
 
 - Bootloader: **desbloqueado** (`verifiedbootstate` orange), slot activo B (Nura).
 - Ambos slots: Android 17 stock, `CP4A.261105.040.A1` (parche 2026-11-05),
@@ -78,6 +91,19 @@ Last updated / Última actualización: 2026-11-25
   reconexión automática; cero unidades fallidas tras un arranque limpio.
   Velocidad sin medir; WiFi Direct casi seguro roto; 6 GHz, WiFi 7,
   suspensión, ahorro de energía y modo AP sin probar. Bluetooth sin tocar.
+- **Hito 5: el Bluetooth funciona** (2026-11-25): kernel
+  `linux-google-zumapro` `pkgrel=4` (parches 0014, el Bluetooth del BCM4390
+  en la UART del APM en el DTS, y 0015, el BCM4390 en `hci_bcm`; config con
+  `BT_LE`, `BT_RFCOMM` y `BT_RFCOMM_TTY`); paquete del dispositivo sin
+  cambios (`pkgrel=3`). Firmware `BCM_200.hcd` de la imagen de fábrica del
+  propio dueño, sin redistribuir. `hci0` encendido por BlueZ, un escaneo de
+  12 s vio 16 dispositivos, emparejado y conectado con un teléfono desde los
+  ajustes de Phosh con el WiFi conectado a la vez; tras reiniciar sube solo
+  (~10 s), el emparejamiento se conserva, cero unidades fallidas. Límites:
+  dirección por defecto (genérica) del chip, siete avisos `Failed to read
+  codec capabilities (-22)`, audio por Bluetooth imposible de probar (aún
+  no hay audio); sin probar suspensión, reposo prolongado, perfiles (HID,
+  A2DP, compartir conexión) ni 4 Mbaud.
 
 Details / Detalles: [DEVICE.md](DEVICE.md), [UNLOCK.md](UNLOCK.md).
 
@@ -136,6 +162,20 @@ siguiendo el driver GPL bcmdhd de Google donde el chip difiere del BCM4398.
 0013 no está en upstream ni se ha enviado. El firmware sale de la imagen de
 fábrica del propio dueño y no se distribuye aquí.
 
+Bluetooth: patch 0014 describes the BCM4390's Bluetooth half on the APM's
+UART (`serial@155d0000`, `ttySAC0`) with its power latch and wake lines, at
+3 Mbaud (stock uses 4), and 0015 gives `hci_bcm` a `brcm,bcm4390-bt` entry
+with the stock HAL's 100 ms power-on delay (`brcm,bcm4389-bt` stays as a
+fallback). Neither is upstream or sent anywhere. The firmware
+(`BCM_200.hcd`, loaded as `brcm/BCM.google,zumapro-komodo.hcd`) comes from
+the owner's own factory image and is installed with
+`scripts/install-bt-firmware.sh`; this repository does not ship it. /
+Bluetooth: el parche 0014 describe la mitad Bluetooth del BCM4390 en la UART
+del APM a 3 Mbaud (stock usa 4) y el 0015 da a `hci_bcm` una entrada
+`brcm,bcm4390-bt` con el retardo de encendido de 100 ms del HAL de fábrica.
+Ninguno está en upstream ni se ha enviado. El firmware sale de la imagen de
+fábrica del propio dueño y no se distribuye aquí.
+
 Known issue / Problema conocido (Milestone 3 / hito 3): `buffyboard.service`
 stayed enabled under Phosh and injected phantom key presses from the same
 touches (stray characters in the PIN); disabled by hand, cause of it being
@@ -171,11 +211,11 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 | Power off | — | untested | unknown | not tried under Nura |
 | CPU frequency | — | **works** | unknown | cpufreq (schedutil) under Nura; only `clk-acpm` and `gs101_acpm_tmu` load by modalias |
 | WiFi | BCM4390 (`bcmdhd4390`), PCIe `14e4:4438`, chip revision b1 (PCI rev `0x05`) | **works** (throughput not measured) | disabled upstream (PR #276) | Milestone 4: patches 0012 (`pcie_1`, Gen3 x1 link, 16 MiB DMA pool) and 0013 (`brcmfmac`, not upstream). Firmware `27.10.1121.57.30` from the owner's own factory image, not redistributed. Scan on 2.4/5 GHz (WPA2, WPA3 seen), WPA connection from Phosh, ping ~18 ms without loss, automatic reconnection. Only an advertised link rate of 270 Mbit/s on 5 GHz; `Set join_pref error (-52)`; `p2p-dev-wlan0` not created (WiFi Direct most likely broken). Untested: 6 GHz, WiFi 7/EHT, suspend, power saving, AP mode. NVRAM chosen without reading the OTP; template MAC in it (NetworkManager randomises) |
-| Bluetooth | BCM4390 combo (per the stock firmware), UART | **not supported** | unknown | Not started; not described in our device tree |
+| Bluetooth | BCM4390 combo, Bluetooth half on the APM UART (`serial@155d0000`) | **works** (with limits) | unknown | Milestone 5: patches 0014 (DTS) and 0015 (`hci_bcm`, not upstream), `hci_uart` + `btbcm` at 3 Mbaud. ROM `BCM4390B1`, factory `BCM_200.hcd` from the owner's own image (not redistributed), patch loaded in ~4 s (build 0000 → 0474). BlueZ powers `hci0` (LE central and peripheral roles); 12 s scan saw 16 devices; paired and connected with a phone from Phosh, WiFi connected at the same time; autoloads at boot (~10 s), pairing persists, zero failed units. **Default chip address** (generic, the same on every unconfigured BCM4390; the unit's own not located, to be set with `btmgmt public-addr` or similar). Seven `Failed to read codec capabilities (-22)`. Untested: Bluetooth audio (no audio yet), HID/A2DP/tethering, suspend and long idle, 4 Mbaud |
 | Audio (amps/haptics) | cs35l41 / cs40l26 | **not supported** | unknown | Not started. AoC involved (unverified how) |
 | Sensors | unverified | untested | unknown | |
 | Modem / calls / SMS / data | unverified | **not supported** | unknown | Not started |
-| Cameras | unverified | **not supported** | unknown | Not started |
+| Cameras | front Sony IMX858, main Samsung ISOCELL GN 50 MP (from the stock camera HAL; not read on the phone) | **not supported** | unknown | Not started; feasibility studied, see [ROADMAP.md](ROADMAP.md) |
 | NFC | unverified | untested | unknown | |
 | Fingerprint | unverified | untested | unknown | |
 | pKVM / virtualization | active on stock | untested | unknown | |

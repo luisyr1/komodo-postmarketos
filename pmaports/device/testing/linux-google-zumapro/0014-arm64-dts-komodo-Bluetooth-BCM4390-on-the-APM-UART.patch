@@ -1,0 +1,154 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 21:00:00 +0000
+Subject: [PATCH 14/15] arm64: dts: komodo: Bluetooth (BCM4390) on the APM UART
+
+The BCM4390's Bluetooth half on uart18 (USI1 of the APM, 0x155d0000)
+with hci_bcm, as stock's dtbo entry for board 0x60806 (fragments 30-35,
+"goog,nitrous") and as tegu (Pixel 9a): BT_REG_ON gpn8-0 behind the
+flip-flop clocked by gpp24-3 (brcm,ble-dbo), BT_DEV_WAKE gpn9-0,
+BT_HOST_WAKE gpa5-6 (rising edge, pulled down). Enables cmu_peric1 and
+pinctrl_peric1 (gpp24), pinctrl_far_alive with gpa5's EINTs (SPI 60-67,
+as stock's DTB), usi_apm1 and uart18. No pinctrl for the UART pads: stock
+has none for serial_18, and gpa3 (zuma's uart18_bus) carries the modem
+PMIC's bit-banged SPMI on komodo. 3 Mbaud to start with (stock: 4 Mbaud).
+
+Compatible "brcm,bcm4390-bt" with the BCM4389 as fallback, as husky does
+for its BCM4398. btbcm loads the owner's stock patch (BCM_200.hcd,
+BCM4390B1) as brcm/BCM.google,zumapro-komodo.hcd; it is never shipped.
+
+Builds (dtc, no warnings). Not tested on hardware: hci_uart autoloads
+from this node and powers the chip at boot, so keep it blacklisted on the
+phone until Bluetooth is tested.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts | 89 +++++++++++++++++++
+ 1 file changed, 89 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 77fdd70..153917b 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -305,6 +305,11 @@
+ 	status = "okay";
+ };
+ 
++/* PERIC1's GPIO clock, for the Bluetooth latch clock on gpp24-3. */
++&cmu_peric1 {
++	status = "okay";
++};
++
+ &sysreg_apm {
+ 	status = "okay";
+ };
+@@ -330,6 +335,28 @@
+ 
+ &pinctrl_custom_alive {
+ 	status = "okay";
++
++	/* BT_REG_ON (gpn8-0) and BT_DEV_WAKE (gpn9-0), stock dtbo fragment 30 */
++	komodo_bt_power: bt-power-pins {
++		samsung,pins = "gpn8-0", "gpn9-0";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-drv = <0>;
++	};
++};
++
++/*
++ * Only for BT_HOST_WAKE (gpa5-6, stock dtbo fragment 31). gpa5-0..2 are the
++ * modem's lines; nothing here requests them.
++ */
++&pinctrl_far_alive {
++	status = "okay";
++
++	komodo_bt_host_wake: bt-host-wake-pins {
++		samsung,pins = "gpa5-6";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
++	};
+ };
+ 
+ &pinctrl_peric0 {
+@@ -349,6 +376,21 @@
+ 	};
+ };
+ 
++/*
++ * The clock of the flip-flop that latches BT_REG_ON (gpp24-3, stock dtbo
++ * fragment 33). Input until hci_bcm requests it as an output.
++ */
++&pinctrl_peric1 {
++	status = "okay";
++
++	komodo_bt_ble_dbo: bt-ble-dbo-pins {
++		samsung,pins = "gpp24-3";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_INPUT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-drv = <0>;
++	};
++};
++
+ &pinctrl_hsi2 {
+ 	status = "okay";
+ 
+@@ -369,6 +411,20 @@
+ 		     <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+ };
+ 
++/* Bluetooth's host wake (gpa5-6); one SPI per pin, 60-67 as in stock's DTB. */
++&gpa5 {
++	interrupt-controller;
++	#interrupt-cells = <2>;
++	interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
++};
++
+ &gpa6 {
+ 	interrupt-controller;
+ 	#interrupt-cells = <2>;
+@@ -524,6 +580,39 @@
+ 	status = "okay";
+ };
+ 
++/*
++ * Bluetooth: the BCM4390's Bluetooth half on the APM's USI1 UART
++ * (0x155d0000, stock's serial_18, /dev/ttySAC18 on Android), as stock's
++ * dtbo (fragments 30-35, "goog,nitrous"): BT_REG_ON gpn8-0 behind the
++ * flip-flop clocked by gpp24-3 (ble-dbo), BT_DEV_WAKE gpn9-0, BT_HOST_WAKE
++ * gpa5-6 active high. The same wiring as tegu (Pixel 9a). The UART pads
++ * need no pinctrl here: stock describes none for serial_18, and gpa3, the
++ * pads of zuma's uart18_bus, is the modem PMIC's bit-banged SPMI on komodo.
++ * Stock runs the link at 4 Mbaud; 3 Mbaud, as on tegu, to start with.
++ * btbcm wants the owner's stock patch (vendor firmware/brcm/BCM_200.hcd,
++ * BCM4390B1) as brcm/BCM.google,zumapro-komodo.hcd; it is never shipped.
++ */
++&usi_apm1 {
++	status = "okay";
++};
++
++&uart18 {
++	status = "okay";
++
++	bluetooth {
++		compatible = "brcm,bcm4390-bt", "brcm,bcm4389-bt";
++		pinctrl-names = "default";
++		pinctrl-0 = <&komodo_bt_power &komodo_bt_ble_dbo &komodo_bt_host_wake>;
++		max-speed = <3000000>;
++		shutdown-gpios = <&gpn8 0 GPIO_ACTIVE_HIGH>;
++		device-wakeup-gpios = <&gpn9 0 GPIO_ACTIVE_HIGH>;
++		brcm,ble-dbo-gpios = <&gpp24 3 GPIO_ACTIVE_HIGH>;
++		interrupt-parent = <&gpa5>;
++		interrupts = <6 IRQ_TYPE_EDGE_RISING>;
++		interrupt-names = "host-wakeup";
++	};
++};
++
+ /*
+  * Mali-G715 on Panthor, as PR #914's gpu-test overlay enabled it: G3D is
+  * left powered by the bootloader (no power domain yet, pd_ignore_unused).

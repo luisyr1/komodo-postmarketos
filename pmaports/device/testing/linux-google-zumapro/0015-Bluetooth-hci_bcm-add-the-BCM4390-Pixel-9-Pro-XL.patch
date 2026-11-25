@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 21:00:00 +0000
+Subject: [PATCH 15/15] Bluetooth: hci_bcm: add the BCM4390 (Pixel 9 Pro XL)
+
+The BCM4390 latches BT_REG_ON like the BCM4383 and BCM4398 (ble-dbo) and
+is handled as the BCM4389, but its stock HAL holds BT_REG_ON low for
+100 ms before raising it (hal_config.json "reg_on_delay_ms": 100;
+bt_vendor.conf: "100 msec is mendatory"), not 30 ms. Add
+"brcm,bcm4390-bt" with that delay; the binding takes it, like the
+BCM4398, with "brcm,bcm4389-bt" as fallback.
+
+Builds (clang r596125, W=1, no warnings). Not tested on hardware.
+---
+ .../bindings/net/bluetooth/brcm,bluetooth.yaml         |  7 +++++--
+ drivers/bluetooth/hci_bcm.c                             | 10 ++++++++++
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/bluetooth/brcm,bluetooth.yaml b/Documentation/devicetree/bindings/net/bluetooth/brcm,bluetooth.yaml
+index ff8ceb9..ea8cc0b 100644
+--- a/Documentation/devicetree/bindings/net/bluetooth/brcm,bluetooth.yaml
++++ b/Documentation/devicetree/bindings/net/bluetooth/brcm,bluetooth.yaml
+@@ -20,7 +20,9 @@ properties:
+               - infineon,cyw43439-bt
+           - const: brcm,bcm4329-bt
+       - items:
+-          - const: brcm,bcm4398-bt
++          - enum:
++              - brcm,bcm4390-bt
++              - brcm,bcm4398-bt
+           - const: brcm,bcm4389-bt
+       - enum:
+           - brcm,bcm20702a1
+@@ -60,7 +62,8 @@ properties:
+     maxItems: 1
+     description: GPIO specifier for the clock of the flip-flop that holds
+       BT_REG_ON on boards that latch it (the BCM4383 on the Google Pixel
+-      9a and the BCM4398 on the Pixel 8 Pro). BT_REG_ON only reaches the chip on a rising edge of this line.
++      9a, the BCM4398 on the Pixel 8 Pro and the BCM4390 on the Pixel 9
++      Pro XL). BT_REG_ON only reaches the chip on a rising edge of this line.
+ 
+   host-wakeup-gpios:
+     maxItems: 1
+diff --git a/drivers/bluetooth/hci_bcm.c b/drivers/bluetooth/hci_bcm.c
+index 2b1b475..9afc71b 100644
+--- a/drivers/bluetooth/hci_bcm.c
++++ b/drivers/bluetooth/hci_bcm.c
+@@ -1655,6 +1655,15 @@ static struct bcm_device_data bcm4383_device_data = {
+ 	.power_on_delay_ms = 30,
+ };
+ 
++/*
++ * The BCM4390 (Pixel 9 Pro XL): its stock HAL holds BT_REG_ON low for
++ * 100 ms before raising it ("reg_on_delay_ms" in hal_config.json, "100 msec
++ * is mandatory" in bt_vendor.conf), not the BCM4389's 30 ms.
++ */
++static struct bcm_device_data bcm4390_device_data = {
++	.power_on_delay_ms = 100,
++};
++
+ static struct bcm_device_data bcm43438_device_data = {
+ 	.drive_rts_on_open = true,
+ };
+@@ -1679,6 +1688,7 @@ static const struct of_device_id bcm_bluetooth_of_match[] = {
+ 	{ .compatible = "brcm,bcm4349-bt", .data = &bcm43438_device_data },
+ 	{ .compatible = "brcm,bcm4383-bt", .data = &bcm4383_device_data },
+ 	{ .compatible = "brcm,bcm4389-bt", .data = &bcm4389_device_data },
++	{ .compatible = "brcm,bcm4390-bt", .data = &bcm4390_device_data },
+ 	{ .compatible = "brcm,bcm43540-bt", .data = &bcm4354_device_data },
+ 	{ .compatible = "brcm,bcm4335a0" },
+ 	{ .compatible = "cypress,cyw4373a0-bt", .data = &cyw4373a0_device_data },
