@@ -7,12 +7,26 @@ by the ABL from slot B with the same five-image layout as
 [Milestone 1](MILESTONE-1.md). Stock Android stays on slot A, but **its data
 is gone**.
 
+*Later note (2026-11-25): the touchscreen now works with the kernel package at
+`pkgrel=1` (four patches: three "display A" plus 0004, touchscreen). With
+touch available, the recommended UI is now `buffyboard` (framebuffer console
+with an on-screen keyboard) instead of `console`; we reinstalled Nura that
+way and logged in on the phone by touch. The steps below are unchanged apart
+from that UI choice; see [JOURNAL.md](JOURNAL.md).*
+
 Superado en nuestra unidad el 2026-11-25 (ver [JOURNAL.md](JOURNAL.md)).
 Descripción reproducible de lo que hicimos: Nura (edge, UI console, systemd)
 construido con pmbootstrap, su raíz escrita en `userdata` y arrancado por el
 ABL desde el slot B con la misma disposición de cinco imágenes que el
 [hito 1](MILESTONE-1.md). Android stock sigue en el slot A, pero **sus datos
 se pierden**.
+
+*Nota posterior (2026-11-25): el táctil ya funciona con el paquete del kernel
+en `pkgrel=1` (cuatro parches: los tres de "display A" y el 0004, del
+táctil). Con táctil, la UI recomendada pasa a ser `buffyboard` (consola de
+framebuffer con teclado en pantalla) en vez de `console`; reinstalamos Nura
+así e iniciamos sesión en el teléfono tocando. Los pasos no cambian salvo esa
+elección de UI; ver [JOURNAL.md](JOURNAL.md).*
 
 > **Irreversible: flashing `userdata` destroys all Android data on the phone.**
 > There is only one `userdata`, shared by both slots. Back up anything you
@@ -58,17 +72,17 @@ se pierden**.
 |---|---|
 | pmbootstrap | 3.12.1, with its **own** configuration file, work directory and pmaports copy (it never touches your default `pmbootstrap_v3.cfg`) |
 | pmaports | channel **edge**, plus this repository's [`pmaports/device/testing/`](../pmaports/device/testing/) packages `device-google-komodo` and `linux-google-zumapro` |
-| Kernel source | GitHub tarball of `derekross/linux-omamobile` (formerly `linux-omarchy-mobile`; the old URL redirects) at commit `ffd33b7ddc716eb3568fff9f8d337a4032d109eb` (PR #276), plus three "display A" patches. The tarball unpacks to `linux-omamobile-<commit>` and was checked file by file to be identical to the Milestone 1 tree |
+| Kernel source | GitHub tarball of `derekross/linux-omamobile` (formerly `linux-omarchy-mobile`; the old URL redirects) at commit `ffd33b7ddc716eb3568fff9f8d337a4032d109eb` (PR #276), plus four patches (package `pkgrel=1`): 0001–0003 "display A" and 0004, which enables the touchscreen (Milestone 2 itself was installed with `pkgrel=0`, the three display patches only). The tarball unpacks to `linux-omamobile-<commit>` and was checked file by file to be identical to the Milestone 1 tree |
 | Kernel config | the RAM-only "display A" `.config` plus the options pmbootstrap's `kconfigcheck.toml` asks for (every category of the `community` alias except `hardening`), resolved with `make olddefconfig` |
 | Toolchain | Alpine's clang inside pmbootstrap (not the Android clang of Milestone 1) |
 | Resulting `uname -r` | `7.3.0-rc6-zumapro` |
-| UI / init | `console` / systemd |
+| UI / init | `buffyboard` recommended now that touch works (Milestone 2 was installed with `console`) / systemd |
 | Images | [`../scripts/mkimages-pmos.sh`](../scripts/mkimages-pmos.sh), AOSP test key, same AVB values as Milestone 1 |
 
 Note: some comments inside the package files mention `hito2/PLAN.md`; that is
 the owner's private working plan. This document is its public equivalent. The
 package files are published byte-identical to the ones we built, except the
-`Date:` lines of the three kernel patches, normalised to UTC (their checksums
+`Date:` lines of the kernel patches, normalised to UTC (their checksums
 in the APKBUILD were updated accordingly).
 
 ### 2. Separate pmaports copy
@@ -101,8 +115,9 @@ PMB=(pmbootstrap -c "$CFG" -w "$KOMODO_WORK/pmos/work" -p "$A")
 
 `init` (re)writes the file given with `-c`, never your default configuration.
 Our answers: channel **edge**; vendor `google`, device `komodo` (found in
-`device/testing`); a user name of your choice; UI **console**; systemd (the
-edge default); no extra packages; a hostname of your choice; SSH keys **yes**.
+`device/testing`); a user name of your choice; UI **console** in the original
+Milestone 2 install, **buffyboard** in the reinstall after touch worked (now
+recommended); systemd (the edge default); no extra packages; a hostname of your choice; SSH keys **yes**.
 
 We did not publish our configuration file (it holds private paths). Its
 relevant lines, with neutral placeholders:
@@ -112,7 +127,7 @@ relevant lines, with neutral placeholders:
 aports = <KOMODO_WORK>/pmos/pmaports
 work = <KOMODO_WORK>/pmos/work
 device = google-komodo
-ui = console
+ui = buffyboard             # console in the original Milestone 2 install
 service_manager = systemd
 extra_packages = none
 locale = C.UTF-8            # example
@@ -125,9 +140,13 @@ Restrict `ssh_key_glob` to a single dedicated public key; the default glob
 copies every `~/.ssh/id_*.pub`. Never put the user password on a command line
 (`--password` stays in your shell history).
 
-Why console: there is no GPU, the screen is `simpledrm` on the bootloader's
-framebuffer, and there is no touch input. A graphical UI adds failures you
-cannot diagnose, and every failed boot spends a slot B retry.
+Why a console UI: there is no GPU and the screen is `simpledrm` on the
+bootloader's framebuffer. A graphical UI adds failures you cannot diagnose,
+and every failed boot spends a slot B retry. Milestone 2 used `console`
+because there was no touch input then; with the touchscreen working
+(`pkgrel=1`), `buffyboard` is the same framebuffer console plus an on-screen
+keyboard, so you can log in on the phone without a PC. We have not tried a
+graphical UI.
 
 ### 4. Kernel tarball checksum and content check
 
@@ -292,7 +311,10 @@ could grab the same interface, disable its autoconnect while testing Nura.
 
 What we saw: Nura edge reaches `login:` on the screen (text console on
 `simpledrm`, display variant A; the display parameters come from the DTB
-bootargs). You cannot type there (no touch input, step 13); log in over SSH:
+bootargs). With the original `console` UI and `pkgrel=0` you could not type
+there (no touch input then). With `pkgrel=1` and `buffyboard`, the owner
+logged in there by touch with the on-screen keyboard. Either way you can log
+in over SSH:
 
 ```sh
 ping -c3 172.16.43.1
@@ -315,6 +337,11 @@ Our result: system `running`, 0 failed units, ext4 root on a loop device
 over `userdata` with 4096-byte sectors, resized to 221.6 GiB, 15.1 GiB of RAM,
 8 CPUs, slot `_b`, UFS read-only guard `--check` = 0. cpufreq (schedutil)
 works.
+
+After the reinstall with `pkgrel=1` and `buffyboard`: SSH over USB after
+~26 s, and `systemd-firstboot.service` failed on that first boot ("Failed to
+set up standard input"; it has no input console), so the system was
+`degraded` for that boot (item 10 in step 13).
 
 **Retry counter.** Every boot (and every reboot) of slot B spends one of the
 three retries, and nothing marks the slot as successful. Keep count, and
@@ -346,7 +373,8 @@ procedure (not touched on our unit).
 
 ### 13. Known problems and limits
 
-Items 1–8 were observed on our unit; item 9 is by design of the UFS guard.
+Items 1–8 and 10 were observed on our unit; item 9 is by design of the UFS
+guard.
 
 1. **Slot B retry counter:** each boot spends 1 of 3, nothing marks the slot
    successful, and with 0 left the ABL boots slot A. Workaround:
@@ -361,8 +389,11 @@ Items 1–8 were observed on our unit; item 9 is by design of the UFS guard.
 4. **Buttons:** logind logs "Power key pressed short", but nothing powers off
    or reboots. Power + Volume Down does not reach fastboot from Linux (see
    step 11).
-5. **No touch input:** you cannot type at the on-screen login. Access is only
-   over SSH, or the initramfs debug shell (telnet, with `pmos.debug-shell`).
+5. **Touch input (solved with `pkgrel=1`):** with the original `pkgrel=0`
+   package you could not type at the on-screen login; access was only over
+   SSH or the initramfs debug shell (telnet, with `pmos.debug-shell`). Patch
+   0004 enables the touchscreen; with the `buffyboard` UI you can log in by
+   touch. Untested: real multitouch, palm rejection, accuracy, suspend/resume.
 6. **No battery or charging support:** there is no `/sys/class/power_supply`.
 7. **Serial console with `pmos.debug-shell`:** the debug shell on `ttyGS0`
    comes out garbled (two readers on the port); telnet works.
@@ -372,6 +403,10 @@ Items 1–8 were observed on our unit; item 9 is by design of the UFS guard.
    read-only whole disk would make `userdata` read-only too. Its other
    partitions are guarded one by one; a raw write to `/dev/sda` would bypass
    the guard.
+10. **`systemd-firstboot.service` fails on the first boot of every new
+    install** ("Failed to set up standard input": it has no input console)
+    and leaves the system `degraded` for that boot. On the previous install
+    it did not come back on later boots.
 
 ### Not verified
 
@@ -408,8 +443,9 @@ Los comandos son los de la sección inglesa. `<SERIAL>` es lo que imprime
    `device-google-komodo` y `linux-google-zumapro` de
    [`pmaports/device/testing/`](../pmaports/device/testing/). Kernel: tarball
    de GitHub de `derekross/linux-omamobile` (antes `linux-omarchy-mobile`; la
-   URL antigua redirige) en el commit `ffd33b7…` con tres parches de
-   pantalla; dentro del tarball la carpeta es `linux-omamobile-<commit>` y es
+   URL antigua redirige) en el commit `ffd33b7…` con cuatro parches
+   (paquete `pkgrel=1`): 0001–0003 de pantalla y 0004, que activa el táctil
+   (el hito 2 se instaló con `pkgrel=0`, solo los tres de pantalla); dentro del tarball la carpeta es `linux-omamobile-<commit>` y es
    idéntica, fichero a fichero, al árbol del hito 1. Clang de Alpine;
    `uname -r` = `7.3.0-rc6-zumapro`. Algunos comentarios de los paquetes
    citan `hito2/PLAN.md`, el plan privado del dueño; este documento es su
@@ -417,7 +453,9 @@ Los comandos son los de la sección inglesa. `<SERIAL>` es lo que imprime
 2. **Copia de pmaports aparte** con un remoto que apunte a la URL oficial, y
    los dos paquetes copiados en `device/testing`.
 3. **Configuración aparte** (`pmbootstrap -c … -w … -p …`): canal edge,
-   `google`/`komodo`, usuario y hostname a tu gusto, UI **console**, systemd,
+   `google`/`komodo`, usuario y hostname a tu gusto, UI **buffyboard**
+   (recomendada ahora que hay táctil; el hito 2 original usó **console**),
+   systemd,
    claves SSH sí, con `ssh_key_glob` limitado a **una** clave dedicada. No
    publicamos nuestro `.cfg` (lleva rutas privadas); las líneas relevantes,
    con marcadores neutros, están en la sección inglesa.
@@ -444,7 +482,11 @@ Los comandos son los de la sección inglesa. `<SERIAL>` es lo que imprime
     varias "caídas de USB" eran eso. Solución: perfil de NetworkManager con
     autoconexión por la MAC fija (inventada) `02:6b:6f:6d:6f:01`.
 11. **Primer arranque:** Nura edge llega a `login:` en pantalla (consola
-    `simpledrm`). Por SSH: sistema `running`, 0 unidades fallidas, raíz ext4
+    `simpledrm`); con `console` y `pkgrel=0` no se podía escribir ahí, con
+    `pkgrel=1` y `buffyboard` el dueño inició sesión tocando el teclado en
+    pantalla. Tras esa reinstalación, SSH por USB a los ~26 s y
+    `systemd-firstboot.service` falló en el primer arranque (sistema
+    `degraded` en ese arranque). Por SSH, en la instalación original: sistema `running`, 0 unidades fallidas, raíz ext4
     en loop sobre `userdata` con sector 4096 redimensionada a 221,6 GiB,
     15,1 GiB de RAM, 8 CPU, slot `_b`, guardia de solo lectura del UFS
     `--check` = 0. **Contador del slot B:** cada arranque gasta un intento;
@@ -463,14 +505,20 @@ Los comandos son los de la sección inglesa. `<SERIAL>` es lo que imprime
     PC (IP estática perdida), y las hipótesis de módulos del kernel y del
     religado de la UDC se probaron en vivo y se descartaron; (4) botones:
     logind registra "Power key pressed short" pero no apaga ni reinicia;
-    (5) sin táctil: no se puede escribir en el login, acceso solo por SSH o
-    por el debug shell del initramfs (telnet con `pmos.debug-shell`); (6) sin
+    (5) táctil, resuelto con `pkgrel=1`: con el paquete original no se podía
+    escribir en el login (acceso solo por SSH o por el debug shell del
+    initramfs, telnet con `pmos.debug-shell`); el parche 0004 activa el
+    táctil y con `buffyboard` se inicia sesión tocando (multitáctil, rechazo
+    de palma, precisión y suspensión/reanudación sin probar); (6) sin
     `/sys/class/power_supply`: batería y carga sin soporte; (7) con
     `pmos.debug-shell`, el debug shell en `ttyGS0` sale entremezclado (dos
     lectores), telnet funciona; (8) solo cargan dos módulos por modalias,
     `clk-acpm` y `gs101_acpm_tmu`, y cpufreq (schedutil) funciona con ellos;
     (9) por diseño de la guardia, el LUN entero `sda` queda escribible
-    (contiene `userdata`).
+    (contiene `userdata`); (10) `systemd-firstboot.service` falla en el
+    primer arranque de cada instalación nueva ("Failed to set up standard
+    input": no tiene consola de entrada) y deja el sistema `degraded` ese
+    arranque; en la instalación anterior no reapareció después.
 
 ### Sin verificar
 

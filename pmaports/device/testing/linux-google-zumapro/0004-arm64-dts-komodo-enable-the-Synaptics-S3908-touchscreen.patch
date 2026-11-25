@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: builder <builder@komodo.invalid>
+Date: Wed, 25 Nov 2026 11:00:00 +0000
+Subject: [PATCH 4/4] arm64: dts: komodo: enable the Synaptics S3908 touchscreen
+
+Enable the touchscreen node that the board DTS already describes. The
+stock komodo DTBO (board_id 0x60806, rev 0x10000) puts a Synaptics
+TouchComm controller ("synaptics,tcm-spi", firmware suffix S3908TG) on
+spi_20 = spi@111d0000, with ATTN on gpn0-0 (level low), reset on gpp1-1
+(active low), AVDD = S2MPG14 LDO4M 3.3 V and VDD = S2MPG14 LDO25M 1.8 V,
+SPI mode 0 at 10 MHz: the same wiring as this node. The in-tree
+synaptics_tcm driver (CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_SPI=y) needs no
+firmware file: the controller runs the application firmware in its own
+flash.
+
+Not tested on this exact tree. Upstream PR #276 left the node disabled
+by policy ("optional ... nodes remain disabled"); its author enabled it
+with a one-line DT overlay on a local integration build and saw
+"Synaptics TouchComm Touchscreen" report BTN_TOUCH and ABS events.
+
+---
+ arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -2,8 +2,8 @@
+ /*
+  * Google Pixel 9 Pro XL (komodo) board identification.
+  *
+- * Boot, storage, display and USB2 paths are described here. Experimental
+- * touch, Type-C, WLAN and GPU devices remain disabled.
++ * Boot, storage, display, USB2 and touch paths are described here.
++ * Experimental Type-C, WLAN and GPU devices remain disabled.
+  */
+ 
+ /dts-v1/;
+@@ -215,7 +215,7 @@
+ 	status = "okay";
+ };
+ 
+-/* ACPM owns the PMIC rails used by the USB2 PHY and the disabled touch node. */
++/* ACPM owns the PMIC rails used by the USB2 PHY and the touchscreen. */
+ &acpm_ipc {
+ 	status = "okay";
+ 
+@@ -402,7 +402,6 @@
+ 		reset-gpios = <&gpp1 1 GPIO_ACTIVE_LOW>;
+ 		avdd-supply = <&touch_avdd>;
+ 		vdd-supply = <&touch_vdd>;
+-		status = "disabled";
+ 	};
+ };
+ 
+-- 
+2.47.0

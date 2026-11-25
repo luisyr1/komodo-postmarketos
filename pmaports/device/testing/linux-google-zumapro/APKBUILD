@@ -8,7 +8,7 @@
 maintainer="komodo port <komodo@example.invalid>"
 pkgname=linux-google-zumapro
 pkgver=7.3_rc6
-pkgrel=0
+pkgrel=1
 pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
 arch="aarch64"
 _carch="arm64"
@@ -60,6 +60,7 @@ source="
 	0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
 	0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
 	0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
+	0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch
 "
 builddir="$srcdir/linux-omamobile-$_commit"
 
@@ -107,4 +108,5 @@ c679e856c170b8954695ad82359ba6210e75fe2a212f83a345a12c9de8b79e5d96f979d31cc259b9
 532c02802c282f9e5bde813055b9f33c234f52649eaec5fc172540e347494537e650ccb188281560de2857716dfcee20220cdbe37816fb737f1973651389924b  0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
 370d0a844f296458fb5d0e788fc820f72ee4be25e5213c7184a62f466af8d30f41af6773cb0f6682f76288093e8508640e0550d069e4df684497ded61fd15aad  0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
 bfd90278b6d769c9be4ec9098b6cb5a8407cd500b983d9a81fabd40a274f5c8e57689cc10503a26b59cf47f96a911611b4c20b171ce822339b2e32f58f673e79  0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
+44e44b4ed9b17033182cf6d089a8264461afb00fd89177ef810c58f8a47e85397b2c9b4ef246b479e12e657826be72b3186a920f8c72aa23222f7153f693bda1  0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch
 "

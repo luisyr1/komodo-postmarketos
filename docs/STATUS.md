@@ -14,9 +14,15 @@ Last updated / Última actualización: 2026-11-25
 - **Milestone 2 passed** (2026-11-25): Nura edge (console UI, systemd)
   installed on `userdata` and booted from slot B; kernel `7.3.0-rc6-zumapro`.
   Slot B holds the five images built by `mkimages-pmos.sh` (`vbmeta_b`
-  stock); `vendor_boot_b` temporarily carries `pmos.debug-shell`. Android
+  stock), with the normal command line (no `pmos.debug-shell`). Android
   data on `userdata` was lost (expected); slot A, bootloader, radio and
   `vbmeta` untouched. [MILESTONE-2.md](MILESTONE-2.md).
+- **Touchscreen works** (2026-11-25): kernel package `linux-google-zumapro`
+  `pkgrel=1` (patch 0004 enables the Synaptics S3908 node). Nura was then
+  reinstalled with the `buffyboard` UI (`userdata` reflashed plus the five
+  `_b` images): it boots, SSH over USB at ~26 s, and the owner logged in at
+  the on-screen `login:` by touch, without a cable.
+  [JOURNAL.md](JOURNAL.md).
 
 - Bootloader: **desbloqueado** (`verifiedbootstate` orange), slot activo B (Nura).
 - Ambos slots: Android 17 stock, `CP4A.261105.040.A1` (parche 2026-11-05),
@@ -28,9 +34,15 @@ Last updated / Última actualización: 2026-11-25
 - **Hito 2 superado** (2026-11-25): Nura edge (UI de consola, systemd)
   instalado en `userdata` y arrancado desde el slot B; kernel
   `7.3.0-rc6-zumapro`. El slot B lleva las cinco imágenes de
-  `mkimages-pmos.sh` (`vbmeta_b` stock); `vendor_boot_b` lleva de momento
-  `pmos.debug-shell`. Los datos de Android en `userdata` se perdieron
+  `mkimages-pmos.sh` (`vbmeta_b` stock), con la línea de arranque normal
+  (sin `pmos.debug-shell`). Los datos de Android en `userdata` se perdieron
   (esperado); slot A, bootloader, radio y `vbmeta`, sin tocar.
+- **El táctil funciona** (2026-11-25): paquete del kernel
+  `linux-google-zumapro` `pkgrel=1` (el parche 0004 activa el nodo del
+  Synaptics S3908). Después se reinstaló Nura con la UI `buffyboard`
+  (`userdata` reflasheado y las cinco imágenes `_b`): arranca, SSH por USB a
+  los ~26 s, y el dueño inició sesión en el `login:` de la pantalla tocando,
+  sin cable.
 
 Details / Detalles: [DEVICE.md](DEVICE.md), [UNLOCK.md](UNLOCK.md).
 
@@ -55,6 +67,19 @@ pantalla, lo que matiza el "reported" de terceros. Con nuestra variante
 (verificado el 2026-11-25) y el `login:` de Nura (hito 2). Los parches están
 publicados en el paquete `linux-google-zumapro`.
 
+Touchscreen: enabled by patch 0004 of the same package (`pkgrel=1`); it only
+removes the `status = "disabled"` line that PR #276 left on the node by
+policy. / Táctil: lo activa el parche 0004 del mismo paquete (`pkgrel=1`);
+solo quita la línea `status = "disabled"` que el PR #276 dejó en el nodo por
+política.
+
+Known issue / Problema conocido: `systemd-firstboot.service` fails on the
+first boot of every new install ("Failed to set up standard input": it has no
+input console) and leaves the system `degraded` for that boot; on the
+previous install it did not come back on later boots. / falla en el primer
+arranque de cada instalación nueva y deja el sistema `degraded` ese arranque;
+en la instalación anterior no reapareció en arranques posteriores.
+
 Source for third-party reports / Fuente de los reportes de terceros:
 Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 <https://github.com/derekross/linux-omarchy-mobile> (renamed on GitHub to
@@ -69,7 +94,7 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 | USB gadget (NCM/ACM/SSH) | — | **works** | reported (PR #276) | `1d6b:0104`. Milestone 1: `172.16.42.0/24`, ~24 s. Nura: `172.16.43.0/24` (phone `.1`), PC-side MAC `02:6b:6f:6d:6f:01` (fixed, from `deviceinfo`). On Nura's first boot the PC did not enumerate it (errors `-71`); not repeated, cause unknown. Later "drops" were the PC losing its static IP on re-enumeration (fixed with a NetworkManager profile by MAC). With `pmos.debug-shell` the debug shell on `ttyGS0` is garbled (two readers); telnet works |
 | Display | panel `google-km4` (bootloader name; see note) | **partial**: text console (`simpledrm` + `fbcon`, 84x93 characters) | reported (PR #276) | "display A" variant: `simple-framebuffer` on the bootloader framebuffer at `0xfac00000` (1344x2992, a8r8g8b8); Nura shows `login:` on it (Milestone 2); command-mode DSI panel, frames at ~60 Hz after `gs_decon.stage=1` unmasks the frame trigger. No GPU/acceleration, no real modesetting (no `km4` panel driver in the tree), no backlight device (brightness as left by the bootloader), no screen off/on. Milestone 1 tree: no output. Variant B (`gs_decon.stage=2 gs_decon.fbdev=1`, KMS flip-only) built, untested |
 | Buttons (power/vol) | — | **partial** | reported (PR #276) | Nura: logind logs "Power key pressed short", but nothing powers off or reboots. From Linux, Power+Vol− does **not** reach fastboot; we got there with a button-forced reboot and then holding Vol− (exact combination not recorded). From the bootloader/stock, Power+Vol− reaches fastboot |
-| Touchscreen | Synaptics (`syna_touch`) | **no input** | disabled upstream (PR #276) | cannot type at Nura's on-screen login; access only over SSH or the initramfs debug shell |
+| Touchscreen | Synaptics S3908, SPI, TouchComm (stock driver `syna_touch`) | **works** | disabled upstream (PR #276) | Node `touchscreen@0` (`syna,s3908`) on `spi@111d0000`, enabled by our patch 0004 (`pkgrel=1`); rails (S2MPG14 LDOs via ACPM), reset and IRQ match the stock DTBO. Driver `synaptics_tcm` (Omamobile tree, not mainline) built in; no external firmware (the chip runs the one in its own flash). dmesg: `S3908GA1B0-15.0, TouchComm v1`, 13440x29920, 10 objects; input device "Synaptics TouchComm Touchscreen"; probe does not delay boot (~0.6 s of kernel time). Verified: typing with `buffyboard` (initramfs debug shell and Nura's `login:`), chip IRQ counter rises with touches. Untested: real multitouch, palm rejection, accuracy/calibration, suspend/resume, a graphical UI |
 | GPU | Mali-G715 | untested | disabled upstream (PR #276) | |
 | USB Type-C | — | untested | disabled upstream (PR #276) | |
 | Charging | MAX77779 family | **not supported** | unknown | no `/sys/class/power_supply` under Nura |

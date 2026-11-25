@@ -443,3 +443,99 @@ táctil; sin `/sys/class/power_supply`; el debug shell en `ttyGS0` sale
 entremezclado, telnet funciona; solo cargan `clk-acpm` y `gs101_acpm_tmu`, y
 cpufreq funciona. Estado: Nura en `userdata` arrancando desde el slot B;
 `vendor_boot_b` lleva de momento `pmos.debug-shell`.
+
+---
+
+## 2026-11-25 — Touchscreen works / El táctil funciona
+
+Kernel package [`linux-google-zumapro`](../pmaports/device/testing/linux-google-zumapro/)
+now at `pkgrel=1`, with a fourth patch,
+`0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch`.
+
+What the hardware is:
+
+- The touch controller is a **Synaptics S3908 over SPI** (TouchComm protocol)
+  on `spi@111d0000`. The board DTS from PR #276 already described the node
+  `touchscreen@0` (`syna,s3908`), but with `status = "disabled"`, by the PR's
+  policy for experimental devices, not because of a reported failure.
+- The `synaptics_tcm` SPI driver comes with the Omamobile tree (it is not
+  mainline) and was already built into our kernel
+  (`CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_SPI=y`). No external firmware is needed:
+  the chip boots the firmware in its own flash.
+- The node's rails (LDOs of the S2MPG14 PMIC, through ACPM), reset and IRQ
+  match the stock DTBO.
+
+The change is removing that one `status = "disabled"` line (patch 0004; it
+also updates two comments). First it was tried by changing only the DTB in
+`vendor_kernel_boot_b`; then it went into the package (`pkgrel=1`) and was
+reinstalled.
+
+Result on our unit:
+
+- dmesg: `synaptics-tcm spi0.0: S3908GA1B0-15.0, TouchComm v1`, 13440x29920,
+  10 objects; input device "Synaptics TouchComm Touchscreen".
+- The probe does not delay the boot (~0.6 s of kernel time).
+- With the on-screen keyboard of the initramfs debug shell (buffyboard), the
+  owner typed by touch; the chip's interrupt counter rises with the touches.
+
+UI and reinstall:
+
+- The UI changed from `console` to `buffyboard` (framebuffer console with an
+  on-screen keyboard), and Nura was reinstalled (`userdata` reflashed plus the
+  five `_b` images).
+- It boots, SSH over USB after ~26 s, and the owner logged in at the
+  on-screen `login:` by touching the keyboard, with no cable: the first local
+  session without a PC.
+
+Problems and limits:
+
+1. `systemd-firstboot.service` fails on the first boot of every new install
+   ("Failed to set up standard input": it has no input console) and leaves
+   the system `degraded` for that boot. On the previous install it did not
+   come back on later boots.
+2. Not tested: real multitouch, palm rejection, accuracy/calibration, touch
+   across suspend/resume, use with a graphical UI.
+3. Unchanged: no GPU, no backlight, no battery/charging, no WiFi; the slot-B
+   retry counter is still unresolved; the buttons still do nothing.
+4. Our own mistake: a temporary diagnostic service installed by hand on the
+   root filesystem left `/etc` and `/usr` with the wrong owner, which broke
+   `sudo`. It was repaired from the debug shell, and the later reinstall left
+   the system clean. Lesson: never extract a tar as root while preserving
+   foreign ownership.
+
+Device state after this entry: Nura (`buffyboard` UI, kernel package
+`pkgrel=1`) on `userdata`, booting from slot B; `vbmeta_b` stock; slot A
+untouched.
+`vendor_boot_b` no longer carries `pmos.debug-shell` (normal command line).
+The 0004 patch text still says "Not tested on this exact tree": it is kept
+byte-identical to what was built; it has since been tested on our unit as
+described above. / `vendor_boot_b` ya no lleva `pmos.debug-shell`; el texto
+del parche 0004 se conserva idéntico al compilado aunque ya está probado.
+
+Resumen: el táctil funciona. Es un Synaptics S3908 por SPI (TouchComm) en
+`spi@111d0000`; el nodo `touchscreen@0` (`syna,s3908`) ya estaba en el DTS de
+la placa, pero con `status = "disabled"` por política del PR #276. El driver
+`synaptics_tcm` (SPI) viene en el árbol de Omamobile, no es mainline, y ya
+estaba integrado en el kernel (`CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_SPI=y`); no
+hace falta firmware externo porque el chip arranca el de su propia flash.
+Raíles (LDO del PMIC S2MPG14 vía ACPM), reset e IRQ coinciden con el DTBO de
+fábrica. El cambio es quitar esa línea (parche 0004): primero se probó
+cambiando solo el DTB de `vendor_kernel_boot_b` y después se integró en el
+paquete (`pkgrel=1`) y se reinstaló. En dmesg: `S3908GA1B0-15.0, TouchComm
+v1`, 13440x29920, 10 objetos; dispositivo de entrada "Synaptics TouchComm
+Touchscreen"; el probe no retrasa el arranque (~0,6 s de kernel). Con el
+teclado en pantalla del debug shell del initramfs (buffyboard) el dueño
+escribió tocando, y el contador de interrupciones del chip sube con los
+toques. La UI pasó de `console` a `buffyboard` y se reinstaló Nura (`userdata`
+reflasheado y las cinco `_b`): arranca, SSH por USB a los ~26 s, y el dueño
+inició sesión en el `login:` tocando, sin cable: la primera sesión local sin
+PC. `systemd-firstboot.service` falla en el primer arranque de cada
+instalación nueva (no tiene consola de entrada) y deja ese arranque en
+`degraded`; en la instalación anterior no reapareció después. Sin probar:
+multitáctil real, rechazo de palma, precisión/calibración,
+suspensión/reanudación, UI gráfica. Sigue sin GPU, backlight, batería/carga
+ni WiFi; el contador del slot B sigue sin resolver y los botones sin acción.
+Error propio: un servicio temporal de diagnóstico instalado a mano en la raíz
+dejó `/etc` y `/usr` con propietario incorrecto y rompió `sudo`; se reparó
+desde el debug shell y la reinstalación lo dejó limpio. Lección: no extraer un
+tar como root conservando propietarios ajenos.

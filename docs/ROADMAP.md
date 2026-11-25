@@ -75,7 +75,10 @@ see Phase 2. / Nota posterior: después se logró consola de texto en pantalla
 - [x] Nura edge (console UI, systemd) built with pmbootstrap 3.12.1, root
   filesystem on `userdata`, booted from slot B to `login:` on screen and SSH
   over USB. Android data lost (expected). / Nura en `userdata`, arrancado
-  desde el slot B; datos de Android perdidos (esperado).
+  desde el slot B; datos de Android perdidos (esperado). *Later note: once
+  touch worked, Nura was reinstalled with the `buffyboard` UI (2026-11-25). /
+  Nota posterior: con el táctil funcionando, Nura se reinstaló con la UI
+  `buffyboard` (2026-11-25).*
 - [x] Display, text console: **done on 2026-11-25** with the "display A"
   kernel variant: `gs-decon` built in, `simple-framebuffer` on the bootloader
   framebuffer at `0xfac00000`, `gs_decon.stage=1`; `simpledrm` + `fbcon`,
@@ -103,12 +106,21 @@ successful (see Phase 2b). / el slot B nunca se marca como correcto.
 - [ ] Buttons: power key handling (poweroff/reboot) and a reliable way to the
   bootloader from Linux. / Botones: tecla de encendido y forma fiable de ir al
   bootloader desde Linux.
-- [ ] Touchscreen (Phase 3), battery and charging (Phase 4), WiFi (Phase 5):
-  next in priority. / Táctil, batería/carga y WiFi: lo siguiente.
-- [ ] Display, the rest: panel driver for `google-km4` and real KMS
-  modesetting (variant B, `gs_decon.stage=2 gs_decon.fbdev=1`, built but
-  untested), backlight, screen off/on. / Pantalla, lo que falta: driver de
-  panel/KMS, backlight, apagar/encender. GPU: Phase 3. / GPU: fase 3.
+- [x] Touchscreen: **done on 2026-11-25** (see Phase 3); Nura reinstalled
+  with the `buffyboard` UI, login on the phone by touch. / Táctil: **hecho el
+  2026-11-25** (ver fase 3); Nura reinstalado con la UI `buffyboard`, login
+  en el teléfono tocando.
+- [ ] Battery and charging (Phase 4): next in priority after the retry
+  counter and the buttons. / Batería y carga (fase 4): lo siguiente tras el
+  contador y los botones.
+- [ ] Display, the rest: backlight, then the panel driver for `google-km4`
+  and real KMS modesetting (variant B, `gs_decon.stage=2 gs_decon.fbdev=1`,
+  built but untested), screen off/on. / Pantalla, lo que falta: backlight,
+  después driver de panel/KMS, apagar/encender. GPU: Phase 3. / GPU: fase 3.
+- [ ] WiFi (Phase 5). / WiFi (fase 5).
+- [ ] `systemd-firstboot.service` fails on the first boot of every new
+  install (no input console) and leaves that boot `degraded`. / Falla en el
+  primer arranque de cada instalación nueva y deja ese arranque `degraded`.
 - [ ] Understand the one-off USB enumeration failure (`-71`) on the first
   boot. / Entender el fallo puntual de enumeración USB (`-71`) del primer
   arranque.
@@ -121,7 +133,17 @@ se pierde la raíz Linux.
 
 ## Phase 3 — Touch and GPU / Táctil y GPU
 
-- [ ] Synaptics touchscreen.
+- [x] Synaptics touchscreen: **done on 2026-11-25.** Synaptics S3908 over SPI
+  (TouchComm) on `spi@111d0000`; patch 0004 of `linux-google-zumapro`
+  (`pkgrel=1`) removes the `status = "disabled"` that PR #276 left on the
+  node by policy; driver `synaptics_tcm` (Omamobile tree, not mainline)
+  already built in; no external firmware. Typing and login by touch with
+  `buffyboard`. / Táctil Synaptics: **hecho el 2026-11-25** (parche 0004,
+  `pkgrel=1`; login tocando con `buffyboard`).
+  - [ ] Not tested yet: real multitouch, palm rejection, accuracy/calibration,
+    touch across suspend/resume, a graphical UI. / Sin probar aún: multitáctil
+    real, rechazo de palma, precisión/calibración, suspensión/reanudación, UI
+    gráfica.
 - [ ] Mali-G715 GPU (Panthor/Mesa status: unverified).
 
 ## Phase 4 — Battery, charging, Type-C / Batería, carga, Type-C

@@ -1,14 +1,18 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
-> **Status: Nura (edge, console UI) is installed on `userdata` and boots on our
-> unit from slot B to a `login:` prompt on the screen, with SSH over USB
-> (Milestone 2, 2026-11-25). No touch, battery or WiFi yet. Stock Android 17
-> stays on slot A, but its data was wiped.**
+> **Status: Nura (edge, `buffyboard` UI) is installed on `userdata` and boots on
+> our unit from slot B to a `login:` prompt on the screen, with SSH over USB
+> (Milestone 2, 2026-11-25). Since the same day the touchscreen works: the
+> owner logged in on the phone itself with the on-screen keyboard, without a
+> cable. No battery, WiFi or GPU yet. Stock Android 17 stays on slot A, but
+> its data was wiped.**
 >
-> **Estado: Nura (edge, UI de consola) está instalado en `userdata` y arranca en
-> nuestra unidad desde el slot B hasta un `login:` en pantalla, con SSH por USB
-> (hito 2, 2026-11-25). Aún sin táctil, batería ni WiFi. Android 17 stock sigue
-> en el slot A, pero sus datos se borraron.**
+> **Estado: Nura (edge, UI `buffyboard`) está instalado en `userdata` y arranca
+> en nuestra unidad desde el slot B hasta un `login:` en pantalla, con SSH por
+> USB (hito 2, 2026-11-25). Desde ese mismo día el táctil funciona: el dueño
+> inició sesión en el propio teléfono con el teclado en pantalla, sin cable.
+> Aún sin batería, WiFi ni GPU. Android 17 stock sigue en el slot A, pero sus
+> datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -47,23 +51,34 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   `172.16.43.1`): system `running`, 0 failed units, 15.1 GiB RAM, 8 CPUs,
   UFS read-only guard clean. Procedure:
   [docs/MILESTONE-2.md](docs/MILESTONE-2.md).
+- **Touchscreen works (2026-11-25).** Synaptics S3908 over SPI (TouchComm),
+  driven by the `synaptics_tcm` driver of the Omamobile tree (not mainline,
+  already built in). The board DTS already described it, disabled by policy
+  in PR #276; our kernel patch 0004 enables it (package `pkgrel=1`). No
+  external firmware is needed. Nura was then reinstalled with the
+  `buffyboard` UI (framebuffer console with an on-screen keyboard), and the
+  owner logged in at `login:` by touch, without a cable: the first local
+  session without a PC. Untested: real multitouch, palm rejection,
+  accuracy/calibration, touch across suspend/resume, a graphical UI.
 - Android data: **lost** when `userdata` was flashed (expected). Slot A,
   bootloader, radio and `vbmeta` untouched.
 - Display: **text console on the screen** (`simpledrm` on the framebuffer the
   bootloader leaves on, `fbcon`). No GPU or acceleration, no real
-  modesetting, no backlight control, no screen off/on. The display patches
-  are now published with the kernel package.
+  modesetting, no backlight control, no screen off/on. The display and
+  touchscreen patches are published with the kernel package.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) and
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
 - Known problems: the slot-B retry counter is spent on every boot and nothing
   marks the slot successful (after 3 boots the ABL falls back to slot A;
-  `fastboot set_active b` beforehand); no touch input (login only over SSH);
-  no battery/charging support; the power key is seen but does nothing.
+  `fastboot set_active b` beforehand); no battery/charging support; the power
+  key is seen but does nothing; no backlight control; on the first boot of
+  every new install `systemd-firstboot.service` fails (no input console) and
+  leaves the system `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next: slot-B retry counter, buttons, touchscreen, battery/charging, WiFi
-  ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Next: slot-B retry counter, buttons, battery/charging, backlight, GPU/KMS,
+  WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
 an earlier stock build); a third-party bring-up names it `google,gs-km4`. On
@@ -83,7 +98,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 | USB gadget (NCM/ACM/SSH) | **works** (SSH to Nura at `172.16.43.1`) | reported (PR #276) |
 | Display | **partial**: text console (`simpledrm` on the bootloader framebuffer), Nura `login:` on screen; no KMS, backlight or GPU | reported (PR #276) |
 | Buttons | **partial**: power key seen by logind, no action; Power+Vol− does not reach fastboot from Linux | reported (PR #276) |
-| Touchscreen | **no input** (cannot type at the login) | described but disabled (PR #276) |
+| Touchscreen | **works** (Synaptics S3908, SPI; typing and login with the `buffyboard` on-screen keyboard); multitouch, palm rejection, accuracy and suspend/resume untested | described but disabled (PR #276) |
 | GPU (Mali-G715) | untested | described but disabled (PR #276) |
 | USB Type-C / charging | charging **not supported** (no `power_supply`); Type-C untested | Type-C described but disabled (PR #276) |
 | WiFi | untested | described but disabled (PR #276) |
@@ -181,24 +196,36 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   `172.16.43.1`): sistema `running`, 0 unidades fallidas, 15,1 GiB de RAM,
   8 CPU, guardia de solo lectura del UFS sin avisos. Procedimiento:
   [docs/MILESTONE-2.md](docs/MILESTONE-2.md).
+- **El táctil funciona (2026-11-25).** Synaptics S3908 por SPI (TouchComm),
+  con el driver `synaptics_tcm` del árbol de Omamobile (no es mainline; ya
+  venía integrado en el kernel). El DTS de la placa ya lo describía,
+  desactivado por política en el PR #276; nuestro parche de kernel 0004 lo
+  activa (paquete `pkgrel=1`). No hace falta firmware externo. Después se
+  reinstaló Nura con la UI `buffyboard` (consola de framebuffer con teclado
+  en pantalla) y el dueño inició sesión en el `login:` tocando, sin cable: la
+  primera sesión local sin PC. Sin probar: multitáctil real, rechazo de
+  palma, precisión/calibración, táctil tras suspender/reanudar, una UI
+  gráfica.
 - Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
   bootloader, radio y `vbmeta`, sin tocar.
 - Pantalla: **consola de texto** (`simpledrm` sobre el framebuffer que deja
   encendido el bootloader, `fbcon`). Sin GPU ni aceleración, sin modesetting
-  real, sin control de brillo, sin apagar/encender. Los parches de pantalla ya
-  están publicados con el paquete del kernel.
+  real, sin control de brillo, sin apagar/encender. Los parches de pantalla y
+  del táctil están publicados con el paquete del kernel.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) y
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
 - Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
   el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
-  hacer antes `fastboot set_active b`); sin táctil (login solo por SSH); sin
-  soporte de batería/carga; la tecla de encendido se detecta pero no hace
-  nada.
+  hacer antes `fastboot set_active b`); sin soporte de batería/carga; la
+  tecla de encendido se detecta pero no hace nada; sin control de brillo; en
+  el primer arranque de cada instalación nueva falla
+  `systemd-firstboot.service` (no tiene consola de entrada) y deja el sistema
+  `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente: contador del slot B, botones, táctil, batería/carga, WiFi
-  ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Siguiente: contador del slot B, botones, batería/carga, brillo
+  (backlight), GPU/KMS, WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -211,8 +238,10 @@ La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (slot B,
 Nura desde `userdata`; cada arranque gasta un intento del slot B); raíz en
 `userdata` **funciona**; UFS: `userdata` en lectura/escritura y el resto en
 solo lectura; gadget USB (NCM/ACM/SSH) **funciona**; pantalla **parcial**:
-consola de texto con el `login:` de Nura, sin KMS, brillo ni GPU; táctil **sin
-entrada** (no se puede escribir en el login); botones **parcial**: logind ve
+consola de texto con el `login:` de Nura, sin KMS, brillo ni GPU; táctil
+**funciona** (Synaptics S3908 por SPI; se escribe y se inicia sesión con el
+teclado en pantalla de `buffyboard`; multitáctil, rechazo de palma, precisión
+y suspensión/reanudación sin probar); botones **parcial**: logind ve
 la tecla de encendido pero no hace nada, y desde Linux Encendido + Volumen −
 no lleva a fastboot; batería y carga **sin soporte** (no hay
 `/sys/class/power_supply`); el resto, **sin probar**. Lo marcado como "reported" lo reporta un

@@ -147,7 +147,7 @@ Observado en el build anterior (Android 16 Beta); sin revisar en Android 17.
 | Function | Part / driver |
 |---|---|
 | Display panel | `google-km4`, as named by the bootloader (`exynos_drm.panel_name=google-km4.…`, verified on our unit); Android loaded the module `panel_boe_nt37290` on the previous stock build; a third-party bring-up names it `google,gs-km4` in Google's device tree |
-| Touchscreen | Synaptics (`syna_touch`) |
+| Touchscreen | Synaptics S3908 over SPI, TouchComm (stock DTBO: `synaptics,tcm-spi` on `spi_20` = `spi@111d0000`, firmware suffix `S3908TG`); Android module `syna_touch` |
 | WiFi | Broadcom BCM4390 (`bcmdhd4390`) |
 | GPU | Arm Mali-G715 |
 | Charger / PMIC | MAX77779 family |
