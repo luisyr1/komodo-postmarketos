@@ -94,36 +94,59 @@ successful (see Phase 2b). / el slot B nunca se marca como correcto.
 
 ## Phase 2b — Make Milestone 2 livable / Hacer usable el hito 2
 
-**Next.** / **Siguiente.**
+**Partly done in Milestone 3 (2026-11-25)**, see
+[MILESTONE-3.md](MILESTONE-3.md); the retry counter is still the main open
+item. / **En parte hecho en el hito 3 (2026-11-25)**; el contador de intentos
+sigue siendo lo principal pendiente.
 
 - [ ] Slot-B retry counter: every boot spends 1 of 3 and nothing marks the
   slot successful; at 0 the ABL boots slot A. Today: `fastboot set_active b`
   by hand. Options: mark the slot successful (third-party notes place the
   counter in `devinfo`; layout on `komodo` unverified, risky; do not write `devinfo` / no escribir `devinfo`) or another
   approach. / Contador de intentos del slot B.
+  *Milestone 3: a `komodo-bootctl` tool (decode `devinfo`; write only
+  behind explicit flags) and a `komodo-boot-success` timer ship in the
+  device package, but the tool is source only (not compiled) and the write
+  has never been run; the timer is not enabled. Still open. / Hito 3: la
+  herramienta va en el paquete solo como fuente, sin compilar, y la
+  escritura nunca se ha ejecutado. Sigue abierto.*
 - [ ] Measure how much a Linux panic consumes of the slot-B retry counter. /
   Medir cuánto consume un pánico de Linux del contador de intentos.
-- [ ] Buttons: power key handling (poweroff/reboot) and a reliable way to the
-  bootloader from Linux. / Botones: tecla de encendido y forma fiable de ir al
-  bootloader desde Linux.
+- [x] Reliable way to the bootloader from Linux: **done in Milestone 3**,
+  `reboot bootloader` (patch 0007 `syscon-reboot-mode` + `reboot=warm`)
+  reaches fastboot without buttons and without spending an extra retry. /
+  Forma fiable de ir al bootloader desde Linux: **hecho en el hito 3**.
+- [ ] Buttons: power key handling (poweroff/reboot) and volume keys; no
+  verified action under Phosh yet. / Botones: tecla de encendido y volumen;
+  sin acción comprobada bajo Phosh.
+- [ ] Power off: not tested. / Apagado: sin probar.
 - [x] Touchscreen: **done on 2026-11-25** (see Phase 3); Nura reinstalled
   with the `buffyboard` UI, login on the phone by touch. / Táctil: **hecho el
   2026-11-25** (ver fase 3); Nura reinstalado con la UI `buffyboard`, login
   en el teléfono tocando.
-- [ ] Battery and charging (Phase 4): next in priority after the retry
-  counter and the buttons. / Batería y carga (fase 4): lo siguiente tras el
-  contador y los botones.
-- [ ] Display, the rest: backlight, then the panel driver for `google-km4`
-  and real KMS modesetting (variant B, `gs_decon.stage=2 gs_decon.fbdev=1`,
-  built but untested), screen off/on. / Pantalla, lo que falta: backlight,
-  después driver de panel/KMS, apagar/encender. GPU: Phase 3. / GPU: fase 3.
+- [x] Battery readout (Phase 4): **done in Milestone 3** (fuel gauge and
+  charger, read-only). Charging control: Phase 4. / Lectura de batería:
+  **hecho en el hito 3**; control de carga: fase 4.
+- [x] Display: backlight (minimal `google,km4` driver) and real KMS
+  (`gs-decon` stage 2): **done in Milestone 3**. / Pantalla: brillo y KMS
+  real, **hecho en el hito 3**.
+  - [ ] Still open: 120 Hz, real panel sleep (display off/sleep-in on a KMS
+    port), suspend/resume. / Pendiente: 120 Hz, reposo real del panel,
+    suspensión.
+- [x] Graphical UI: **Phosh, done in Milestone 3** (graphical login by
+  touch, GPU-accelerated). / UI gráfica: **Phosh, hecho en el hito 3**.
+  - [ ] `buffyboard.service` stays enabled under Phosh and injects phantom
+    key presses; disabled by hand. Find what enables it and fix it in the
+    packages. / `buffyboard.service` sigue activo bajo Phosh; averiguar qué
+    lo habilita y corregirlo en los paquetes.
 - [ ] WiFi (Phase 5). / WiFi (fase 5).
 - [ ] `systemd-firstboot.service` fails on the first boot of every new
   install (no input console) and leaves that boot `degraded`. / Falla en el
   primer arranque de cada instalación nueva y deja ese arranque `degraded`.
-- [ ] Understand the one-off USB enumeration failure (`-71`) on the first
-  boot. / Entender el fallo puntual de enumeración USB (`-71`) del primer
-  arranque.
+- [ ] Understand the USB enumeration failure (`-71`): seen on the first
+  boot in Milestone 2, intermittent on some boots in Milestone 3. / Entender
+  el fallo de enumeración USB (`-71`): puntual en el hito 2, intermitente en
+  algunos arranques del hito 3.
 
 Trade-off: there is only one `userdata`. Booting stock Android on slot A is
 reported by third parties to reformat `userdata` (not verified by us), and then
@@ -140,21 +163,44 @@ se pierde la raíz Linux.
   already built in; no external firmware. Typing and login by touch with
   `buffyboard`. / Táctil Synaptics: **hecho el 2026-11-25** (parche 0004,
   `pkgrel=1`; login tocando con `buffyboard`).
+  - [x] Graphical UI by touch: Phosh (Milestone 3). / UI gráfica tocando:
+    Phosh (hito 3).
   - [ ] Not tested yet: real multitouch, palm rejection, accuracy/calibration,
-    touch across suspend/resume, a graphical UI. / Sin probar aún: multitáctil
-    real, rechazo de palma, precisión/calibración, suspensión/reanudación, UI
-    gráfica.
-- [ ] Mali-G715 GPU (Panthor/Mesa status: unverified).
+    touch across suspend/resume. / Sin probar aún: multitáctil real, rechazo
+    de palma, precisión/calibración, suspensión/reanudación.
+- [x] Mali-G715 GPU: **done in Milestone 3.** Patch 0011, Panthor with the
+  CSF firmware from `linux-firmware-arm`, Mesa 26.3.1 ("Mali-G715 MC7
+  (Panfrost)", OpenGL ES 3.1); autoloads since device `pkgrel=3`. / GPU
+  Mali-G715: **hecho en el hito 3.**
+  - [ ] Still open: a power domain driver for G3D (today it relies on the
+    bootloader leaving it on), DVFS above 302 MHz with thermal limits,
+    suspend, performance measurements. / Pendiente: driver de power domain
+    de G3D, DVFS por encima de 302 MHz con límites térmicos, suspensión,
+    medidas de rendimiento.
 
 ## Phase 4 — Battery, charging, Type-C / Batería, carga, Type-C
 
-- [ ] Fuel gauge and charger (MAX77779 family).
-- [ ] USB Type-C role switching.
+- [x] Fuel gauge and charger (MAX77779) described and read: **done in
+  Milestone 3** (patches 0005–0006; percentage and design capacity, charger
+  detected). / Fuel gauge y cargador: **hecho en el hito 3** (lectura).
+- [ ] Charging that actually charges: today a PC USB port gives 500 mA and
+  the battery barely charges; needs USB-PD through the TCPC, a charge
+  policy and thermal bands. / Que cargue de verdad: hoy un USB de PC da
+  500 mA y casi no carga.
+- [ ] Low-battery shutdown (UPower or similar). / Apagado por batería baja.
+- [ ] USB Type-C: TCPC as a sink first (patch prepared, not integrated), then
+  USB-PD, then role switching. / USB Type-C: TCPC como sumidero (parche
+  preparado, sin integrar), luego USB-PD y cambio de rol.
 
 ## Phase 5 — WiFi and Bluetooth
 
-- [ ] BCM4390 WiFi (firmware licensing: unverified).
-- [ ] Bluetooth.
+- [ ] BCM4390 WiFi over PCIe (`14e4:4438`): mainline `brcmfmac` does not
+  support the chip; it needs PCIe bring-up on `pcie_1` and `brcmfmac` work.
+  The firmware is Google's, with no redistribution license we know of, so
+  it will not be shipped here: it would have to come from each owner's own
+  factory image. / WiFi BCM4390: el `brcmfmac` de mainline no lo soporta; el
+  firmware no se distribuirá aquí.
+- [ ] Bluetooth (same BCM4390 combo). / Bluetooth (mismo combo BCM4390).
 
 ## Phase 6 — Audio and sensors / Audio y sensores
 

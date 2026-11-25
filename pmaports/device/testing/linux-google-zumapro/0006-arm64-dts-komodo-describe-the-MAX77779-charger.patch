@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:06:00 +0000
+Subject: [PATCH 6/11] arm64: dts: komodo: describe the MAX77779 charger
+
+Stock max77779chrg@69 on hsi2c_6. Bind it to max77779_charger
+(CONFIG_CHARGER_MAX77779=m): status, online, charge type, input limit
+and fast-charge current are read; the only write is CHG_CNFG_00.MODE,
+and only when userspace sets charge_behaviour. Link the gauge to it so
+the battery status comes from the charger.
+
+Tested on komodo.
+---
+ arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 2855d8d0c..1eb1d38e1 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -397,6 +397,18 @@ fuel-gauge@36 {
+ 		compatible = "maxim,max77779-fg";
+ 		reg = <0x36>;
+ 		shunt-resistor-micro-ohms = <2000>;
++		power-supplies = <&komodo_charger>;
++	};
++
++	/*
++	 * The MAX77779 switching charger (stock max77779chrg@69). The driver
++	 * leaves the charge current, voltage and input limit as the
++	 * bootloader set them and only reports them; it writes CHG_CNFG_00
++	 * only when userspace sets charge_behaviour (inhibit-charge/auto).
++	 */
++	komodo_charger: charger@69 {
++		compatible = "maxim,max77779-charger";
++		reg = <0x69>;
+ 	};
+ };
+ 

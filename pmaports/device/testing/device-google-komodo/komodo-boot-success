@@ -1,0 +1,98 @@
+#!/bin/sh
+# komodo-boot-success: mark slot B "successful" in devinfo, as Android's
+# boot-control HAL does after every good boot, so the ABL stops spending one
+# of slot B's 3 retries per boot (and never falls back to slot A, whose
+# Android would reformat userdata).
+#
+#   komodo-boot-success            dry run: decode and print the planned change
+#   komodo-boot-success --write    do it (the service passes this)
+#
+# Opt-out: /etc/komodo/no-boot-success, or "komodo.no_boot_success" on the
+# kernel command line (checked by the unit and here).
+#
+# Writes exactly one byte (0x35, OR 0x02) through komodo-bootctl, which
+# refuses anything but devinfo layout 3.19 and verifies all 8192 bytes
+# after the write. devinfo lives on its own LUN (sdd1 inside sdd), which
+# google-komodo-ufs-ro keeps read-only: this script makes exactly sdd and
+# sdd1 writable for the write and read-only again on exit, with a 60 s
+# systemd timer as a second lock in case this script is killed.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+UFS_HOST=13200000.ufs
+STATE=/var/lib/komodo-boot-success
+WRITE=0
+[ "${1:-}" = "--write" ] && WRITE=1
+
+log() { echo "komodo-boot-success: $*"; echo "komodo-boot-success: $*" > /dev/kmsg 2>/dev/null || :; }
+die() { log "$*"; exit 1; }
+
+[ -e /etc/komodo/no-boot-success ] && { log "disabled by /etc/komodo/no-boot-success"; exit 0; }
+grep -qw komodo.no_boot_success /proc/cmdline && { log "disabled on the kernel command line"; exit 0; }
+
+# 1. Only slot B, only when the ABL says we booted B.
+slot=$(sed -n 's/^androidboot.slot_suffix = "_\([ab]\)"$/\1/p' /proc/bootconfig 2>/dev/null || :)
+[ "$slot" = b ] || { log "booted slot is '${slot:-?}', not b: nothing to do"; exit 0; }
+
+# 2. Exactly one UFS partition named devinfo, and its LUN.
+dev=""
+n=0
+for s in /sys/class/block/sd*; do
+	[ -e "$s/partition" ] || continue
+	case "$(readlink -f "$s")" in */"$UFS_HOST"/*) ;; *) continue ;; esac
+	if grep -qx PARTNAME=devinfo "$s/uevent" 2>/dev/null; then
+		dev=${s##*/}
+		n=$((n + 1))
+	fi
+done
+[ "$n" -eq 1 ] || die "found $n UFS partitions named devinfo, want 1"
+disk=$(basename "$(dirname "$(readlink -f "/sys/class/block/$dev")")")
+[ "$(cat "/sys/class/block/$dev/size")" -eq 16 ] || die "/dev/$dev is not 8 KiB"
+log "devinfo is /dev/$dev on /dev/$disk"
+
+# 3. Already marked? Then do nothing (and never open the guard).
+if komodo-bootctl check "/dev/$dev" b >/dev/null; then
+	log "slot b already successful"
+	exit 0
+fi
+
+# 4. Backup (root only; it holds the device's serials, never copy it off
+#    the phone carelessly). Keep the first one forever, plus the latest.
+umask 077
+mkdir -p "$STATE"
+cat "/dev/$dev" > "$STATE/devinfo-latest.img"
+[ -e "$STATE/devinfo-first.img" ] || cp "$STATE/devinfo-latest.img" "$STATE/devinfo-first.img"
+sync
+
+# 5. Dry run must plan exactly one change at 0x35.
+plan=$(komodo-bootctl mark-successful "/dev/$dev" b) || die "dry run refused: $plan"
+echo "$plan"
+echo "$plan" | grep -q '^planned change: offset 0x35: ' || die "unexpected plan"
+[ "$WRITE" = 1 ] || { log "dry run only (pass --write)"; exit 0; }
+
+# 6. Open the guard for exactly this LUN and partition, then close it.
+relock() {
+	blockdev --setro "/dev/$dev" 2>/dev/null || :
+	blockdev --setro "/dev/$disk" 2>/dev/null || :
+}
+trap relock EXIT INT TERM
+systemd-run --quiet --unit=komodo-devinfo-relock --on-active=60 \
+	/bin/sh -c "blockdev --setro /dev/$dev; blockdev --setro /dev/$disk" 2>/dev/null ||
+	log "could not arm the relock timer (continuing; the EXIT trap still relocks)"
+blockdev --setrw "/dev/$disk"
+blockdev --setrw "/dev/$dev"
+
+rc=0
+komodo-bootctl mark-successful "/dev/$dev" b --write --i-understand-devinfo || rc=$?
+relock
+trap - EXIT INT TERM
+systemctl stop komodo-devinfo-relock.timer 2>/dev/null || :
+
+[ "$(cat "/sys/class/block/$dev/ro")" = 1 ] && [ "$(cat "/sys/class/block/$disk/ro")" = 1 ] ||
+	log "WARNING: /dev/$dev or /dev/$disk is still writable"
+/usr/libexec/google-komodo-ufs-ro --check >/dev/null || log "WARNING: UFS guard check reports writable devices"
+
+case $rc in
+0) log "slot b marked successful" ;;
+3) die "VERIFY FAILED: restore with the recovery procedure (backup in $STATE/devinfo-latest.img)" ;;
+*) die "komodo-bootctl refused or failed (rc $rc); nothing should have changed" ;;
+esac

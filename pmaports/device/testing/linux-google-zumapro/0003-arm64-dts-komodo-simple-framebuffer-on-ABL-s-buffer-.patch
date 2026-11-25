@@ -1,5 +1,5 @@
 From af0ac2996a91c328d8ddbfc8edc59bcd6e31b9a1 Mon Sep 17 00:00:00 2001
-From: builder <builder@komodo.invalid>
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
 Date: Tue, 24 Nov 2026 18:02:00 +0000
 Subject: [PATCH] arm64: dts: komodo: simple-framebuffer on ABL's buffer,
  gs-decon stage 1

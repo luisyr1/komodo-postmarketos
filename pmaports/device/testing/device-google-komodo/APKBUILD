@@ -3,9 +3,9 @@ maintainer="komodo port <komodo@example.invalid>"
 pkgname=device-google-komodo
 pkgdesc="Google Pixel 9 Pro XL"
 pkgver=1
-pkgrel=0
+pkgrel=3
 url="https://postmarketos.org"
-license="MIT"
+license="MIT AND Apache-2.0"
 arch="aarch64"
 options="!check !archcheck"
 # android-tools-mkbootimg: boot-deploy runs mkbootimg (generate_bootimg)
@@ -14,7 +14,9 @@ depends="
 	linux-google-zumapro
 	postmarketos-base
 "
-makedepends="devicepkg-dev"
+# linux-headers: <linux/fs.h> for komodo-bootctl (BLK* ioctls); the
+# compiler comes from build-base, always present in the build chroot
+makedepends="devicepkg-dev linux-headers"
 subpackages="$pkgname-systemd"
 source="
 	deviceinfo
@@ -24,10 +26,19 @@ source="
 	google-komodo-ufs-ro
 	google-komodo-initfs.files
 	unudhcpd.conf
+	google-komodo-modprobe.conf
+	komodo-bootctl.c
+	komodo-boot-success
+	komodo-boot-success.service
+	komodo-boot-success.timer
+	50-google-komodo-buttons.conf
 "
 
 build() {
 	devicepkg_build $startdir $pkgname
+	# devinfo slot-flag tool (read-only unless --write --i-understand-devinfo)
+	# komodo-bootctl is not compiled in this pkgrel: the crossdirect build
+	# environment has no cc1. It is built separately when needed.
 }
 
 package() {
@@ -43,6 +54,16 @@ package() {
 
 	# USB network addresses (initramfs and unudhcpd@usb0)
 	install -Dm644 "$srcdir"/unudhcpd.conf "$pkgdir"/etc/unudhcpd.conf
+
+	# Module policy. panthor is no longer blacklisted (tested with the CSF
+	# firmware). panel-google-km4 is not listed: it sends nothing until
+	# gs_dsim_cmd.allow_tx=1.
+	install -Dm644 "$srcdir"/google-komodo-modprobe.conf \
+		"$pkgdir"/usr/lib/modprobe.d/google-komodo.conf
+
+	# Slot B boot-success helper. NOT FUNCTIONAL in this pkgrel: it calls
+	# komodo-bootctl, which is shipped as source only and not built.
+	install -Dm755 "$srcdir"/komodo-boot-success -t "$pkgdir"/usr/libexec/
 }
 
 systemd() {
@@ -54,14 +75,32 @@ systemd() {
 	mkdir -p "$subpkgdir"/usr/lib/systemd/system/getty.target.wants
 	ln -s ../serial-getty@.service \
 		"$subpkgdir"/usr/lib/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
+
+	# Slot B boot-success marker. Installed, not enabled (no preset, no
+	# .wants link). DO NOT ENABLE OR RUN WITH --write: it would write to the
+	# devinfo partition, which has never been tested on this device and
+	# could leave the phone unbootable. Kept for reference only.
+	install -Dm644 "$srcdir"/komodo-boot-success.service \
+		"$srcdir"/komodo-boot-success.timer \
+		-t "$subpkgdir"/usr/lib/systemd/system/
+
+	# Power key for ui=console: long press powers off (logind)
+	install -Dm644 "$srcdir"/50-google-komodo-buttons.conf \
+		-t "$subpkgdir"/usr/lib/systemd/logind.conf.d/
 }
 
 sha512sums="
-24d9281903e720ed4931695a664d4e2e0488ba449a69c1d870e224964677436aed76c800763118c7ef3e33becd12e39390040aa8e7c4737dcd39a1d554a04842  deviceinfo
-5a3405c9e9ef71ba4832ceec7f1a6afe212393b3d185535320eb33bfd2d5a7afcb52aa5cb18b395a091d07bea8a84d7db75bea5322a5117aa82ea7a8b7d08de3  kernel-cmdline.conf
+bc0adb53bfc07842e5800109e8a19cfffc2b4b4e85b3c6176c0a1847bd66b755eceb5a7878ca19c343dbad92724734a4aebb24d79a76a932781e75dc5b0655cf  deviceinfo
+d9b56785d0fc722c5a7de3f5acfd1351450bfafa349ca945af178efead18131e3974fac10ef11a02d1b3a5c8be86620d2f1ff5708e9cd6bd10b6196b1cea22b9  kernel-cmdline.conf
 c99aac7b707c937d9c5e725c589074c24439a6ddabc0ccecc9bc189dfdd4943479f3bdfb992ef99d947aaa26193ba1813385a469bf5db5c82fd9a86201566163  initfs-hook.sh
 f658ef2c4a25fbdaecc9b631d89d8f24e1e2f21fe8a56da1ca627006f61b3602a8690de7a249f75dfeb5b9228e39bd7ffee7e14dd79826e48372e3d637936b8d  60-google-komodo-ufs-ro.rules
 b318813937eb0c56152f46203df3ed108747fa6a0f410574a77ddfb04aac5cc8d4056019141654bf6ff9749df184868f0fc04c030bf1f0d11ab37518895875fc  google-komodo-ufs-ro
 7b0c1c075b7cf1af57736018202055ffac5d5d47bab2a3f2c1cb2a255b86efae21f1fb2e112176985d8776b00d8ac3925716b556db2f007259baffd760d7187e  google-komodo-initfs.files
 781dcdb4a362b43fdd15097d32febef9cc0a40e7ce09139ef2bd68d094968fc53a914b7de9bb94a7781af2a21e5e6c658ac079f58e7936b4a38f3df5e7ce58be  unudhcpd.conf
+e7336f2f62cf7e81a2db394e8204c9a30464b31e478717f84785d44340706e49d89650570ce7f8cf3cda00d231e2cb59250202ba3ea893bcfaeb80572728d68f  google-komodo-modprobe.conf
+bf7256da9d4311479102cb6f248ffd4229754ad903f059e65d095f5881f52a4c84f084539cfc607e37fe64263646c983e3630e2ba09cac072550ee21256fcfad  komodo-bootctl.c
+10b823eaad94775d9c2b5967581f4797481e17790713333696b8fdd41c1173042f23666df558be1c54724c9d646fcd245317f3e00fc9d95069f5b59cda9f338e  komodo-boot-success
+0c3c95474dda4a615381d18fe492c3d20cca2306975fbc63a64c0048138b024da4400dcca51fcfe26c9197082c736858028f75d0b08f1e7883f1a2883890ec21  komodo-boot-success.service
+e3baf4a814b0bb38e3f0c07265d6036557c14ee0fdcef69dd76e81b110c0247b9a9e90e635f021a0ae49c654ee3f847dce4e6534b14d6ce1e40c711981c8ed11  komodo-boot-success.timer
+f7b33a9745b3db34b16745a73f300fe218fc4846d316d11f9b598836281bf7b66a25da48cf204e3ca8b0fe9edec37368491eaa8e5c22c6bae941c0d8d6c2b04a  50-google-komodo-buttons.conf
 "

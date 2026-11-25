@@ -1,0 +1,13 @@
+# Mark slot B successful in devinfo once this boot has proven itself
+# (started by komodo-boot-success.timer, 2 minutes after reaching
+# multi-user.target). See komodo-boot-success for the guards.
+[Unit]
+Description=Mark boot slot B successful for the Pixel bootloader (komodo)
+ConditionPathExists=/proc/bootconfig
+ConditionPathExists=!/etc/komodo/no-boot-success
+ConditionKernelCommandLine=!komodo.no_boot_success
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/komodo-boot-success --write

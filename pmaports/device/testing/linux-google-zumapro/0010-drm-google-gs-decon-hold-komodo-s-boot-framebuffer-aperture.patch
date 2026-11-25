@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:10:00 +0000
+Subject: [PATCH 10/11] drm/google: gs-decon: hold komodo's boot framebuffer
+ aperture
+
+With hold_boot_fb, variant B (gs_decon.stage=2) can keep the
+simple-framebuffer node as a fallback: if gs-decon takes the display,
+simpledrm cannot register a second output on the same buffer; if gs-decon
+does not (stage 1, failed probe), simpledrm keeps the console. Stage 1 is
+unchanged (the hold is only taken on the KMS path). Same setting raven
+(gs101) runs with.
+
+Not tested on hardware.
+---
+ drivers/gpu/drm/google/gs-decon.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/google/gs-decon.c b/drivers/gpu/drm/google/gs-decon.c
+index c36c81747..3205fb68d 100644
+--- a/drivers/gpu/drm/google/gs-decon.c
++++ b/drivers/gpu/drm/google/gs-decon.c
+@@ -330,7 +330,13 @@ static const struct gs_decon_soc_data zumapro_decon_data = {
+ 	.floors_optional = true,
+ };
+ 
+-/* Komodo's bootloader handoff was measured on-device at 1344x2992. */
++/*
++ * Komodo's bootloader handoff was measured on-device at 1344x2992. The DT
++ * keeps a simple-framebuffer on the same buffer as a fallback for when
++ * gs-decon does not take the display (stage 1, a failed probe): hold its
++ * aperture after evicting simpledrm, as on raven, so that a simpledrm
++ * probing later does not register a second, phantom output.
++ */
+ static const struct gs_decon_soc_data komodo_decon_data = {
+ 	.modes = komodo_decon_modes,
+ 	.num_modes = ARRAY_SIZE(komodo_decon_modes),
+@@ -341,6 +347,7 @@ static const struct gs_decon_soc_data komodo_decon_data = {
+ 	.padded_pitch = true,
+ 	.start_hw_trigger = true,
+ 	.floors_optional = true,
++	.hold_boot_fb = true,
+ };
+ 
+ /* G3 shares G4's CAL (cal_9865) and DECON0 registers. */

@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:09:00 +0000
+Subject: [PATCH 9/11] arm64: dts: komodo: DSIM0 as a DCS command host for the
+ KM4
+
+Enable dsi0 (google,zumapro-dsim / gs201-dsim, bound by gs-dsim-cmd) with
+the KM4 panel as its child, so panel-google-km4 can register a backlight.
+No port to decon0: gs-decon keeps its handoff, simpledrm keeps scanning
+(variant A). gs-dsim-cmd only reads its registers at probe and sends
+nothing until gs_dsim_cmd.allow_tx=1 (cmdline or
+/sys/module/gs_dsim_cmd/parameters/allow_tx).
+
+Not tested on hardware.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts     | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 23ade1182..2edd61488 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -170,6 +170,21 @@ &decon0 {
+ 	status = "okay";
+ };
+ 
++/*
++ * DSIM0 as a DSI host for DCS commands only (gs-dsim-cmd): the KM4 runs as
++ * ABL left it, with no reset or supply control and no port to DECON0, so
++ * gs-decon keeps its own 60 Hz handoff. Nothing is sent to the panel until
++ * gs_dsim_cmd.allow_tx=1.
++ */
++&dsi0 {
++	status = "okay";
++
++	panel@0 {
++		compatible = "google,km4";
++		reg = <0>;
++	};
++};
++
+ /* Service both boot-enabled cluster watchdogs during early Linux startup. */
+ &pmu_system_controller {
+ 	status = "okay";

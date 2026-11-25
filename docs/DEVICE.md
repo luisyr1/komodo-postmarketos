@@ -28,6 +28,7 @@ Solo datos del modelo. Números de serie, IMEI, MAC u otros identificadores
 | Kernel cmdline | **Verified on our unit** (bootloader `ripcurrentpro-17.0-16433847`): the ABL **does** append the `vendor_boot` cmdline. Final cmdline = DTB `/chosen/bootargs` + `vendor_cmdline` + parameters added by the bootloader (among them `exynos_drm.panel_name=google-km4.…` and `console=null`). This corrects the earlier third-party claim that ABL ignores it |
 | Custom images + stock `vbmeta` | images with an AVB hash footer signed with AOSP's public test key boot with stock `vbmeta_b` and the bootloader unlocked (verified, Milestone 1) |
 | Forced reboot to fastboot | hold **Power + Volume Down** (verified) |
+| Reboot to fastboot from Linux | `reboot bootloader` with `syscon-reboot-mode` on the PMU (reboot reason in `SYSIP_DAT0`, PMU + 0x810, `0xfc` = bootloader) and `reboot=warm` (a cold PSCI reset clears the register); verified on our unit in Milestone 3, no extra slot retry spent |
 | Virtualization | pKVM active on stock |
 | `fastboot boot` (RAM boot) | reported not viable on `komodo` by third parties; not verified by us |
 
@@ -46,6 +47,12 @@ As of 2026-11-24. / A fecha de 2026-11-24.
 | Baseband | `g5400c-260818-261007-B-16536938` |
 | Automatic system updates | disabled |
 | Linux flashed | "display A" kernel variant images on the five slot-B boot partitions since 2026-11-24 (re-flashed 2026-11-25), replacing the Milestone 1 ones (`vbmeta_b` stock); restoring them to stock not recorded yet |
+
+*Later note (2026-11-25): the active slot is now B, with Nura (Phosh UI,
+Milestone 3) on `userdata` and the five slot-B images built from it; slot B
+is still never marked successful. See [STATUS.md](STATUS.md). / Nota
+posterior: el slot activo es ahora B, con Nura (UI Phosh, hito 3) en
+`userdata`; el slot B sigue sin marcarse como correcto.*
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -148,8 +155,8 @@ Observado en el build anterior (Android 16 Beta); sin revisar en Android 17.
 |---|---|
 | Display panel | `google-km4`, as named by the bootloader (`exynos_drm.panel_name=google-km4.…`, verified on our unit); Android loaded the module `panel_boe_nt37290` on the previous stock build; a third-party bring-up names it `google,gs-km4` in Google's device tree |
 | Touchscreen | Synaptics S3908 over SPI, TouchComm (stock DTBO: `synaptics,tcm-spi` on `spi_20` = `spi@111d0000`, firmware suffix `S3908TG`); Android module `syna_touch` |
-| WiFi | Broadcom BCM4390 (`bcmdhd4390`) |
-| GPU | Arm Mali-G715 |
+| WiFi / Bluetooth | Broadcom BCM4390 combo (`bcmdhd4390`); WiFi on PCIe (`pcie_1`), ID `14e4:4438` (stock module aliases and our board DTS) |
+| GPU | Arm Mali-G715 (Mesa under Nura: "Mali-G715 MC7") |
 | Charger / PMIC | MAX77779 family |
 | Audio amplifiers | Cirrus cs35l41 |
 | Haptics | Cirrus cs40l26 |
@@ -160,9 +167,25 @@ Panel: the bootloader identifies it as `google-km4` (verified 2026-11-24);
 identifica como `google-km4` (verificado el 2026-11-24); `panel_boe_nt37290`
 era el módulo que cargaba Android.
 
-Not yet verified: Bluetooth chip, modem details, sensors, cameras, NFC and
-fingerprint parts. / Sin verificar aún: chip Bluetooth, módem, sensores,
-cámaras, NFC y huella.
+Not yet verified: modem details, sensors, cameras, NFC and fingerprint
+parts. / Sin verificar aún: módem, sensores, cámaras, NFC y huella.
+
+## Seen from Linux (Milestone 3) / Visto desde Linux (hito 3)
+
+Kernel `7.3.0-rc6-zumapro` (`linux-google-zumapro` `pkgrel=2`), Nura with
+Phosh, 2026-11-25. / Nura con Phosh.
+
+| Item | Value |
+|---|---|
+| Display | `gs-decon` stage 2, real KMS, 1344x2992 at 60 Hz |
+| Panel brightness | DCS `0x51` through DSIM0 (`gs-dsim-cmd`) with our minimal `google,km4` driver; backlight range 0..3271, 0 = pixel off |
+| GPU | Mali-G715 on Panthor, CSF firmware `arm/mali/arch11.8/mali_csffw.bin`; OPP 150/302 MHz only; G3D relies on the bootloader leaving it powered (no power domain driver) |
+| Fuel gauge | MAX77779 at `0x36` on `hsi2c6` (`i2c@108d0000`); design capacity read as 5035 mAh (shunt 2 mΩ assumed from the Pixel 9a) |
+| Charger | MAX77779 at `0x69` on the same bus; input 500 mA from a PC USB port |
+| USB-C controller | at `0x25` on the same bus; not enabled in our kernel |
+
+Unique values (battery serials, MACs) are not recorded here. / Los valores
+únicos (series de batería, MAC) no se anotan aquí.
 
 ## Upstream status / Estado upstream
 

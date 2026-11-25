@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:11:00 +0000
+Subject: [PATCH 11/11] arm64: dts: komodo: enable the Mali-G715 (Panthor)
+
+Enable cmu_g3d, the two-level OPP table (150/302 MHz) and the GPU node,
+as PR #914's gpu-test.dtso did on komodo, where Panthor bound, identified
+Mali-G715, loaded arm/mali/arch11.8/mali_csffw.bin and created
+renderD128. device-google-komodo blacklists panthor, so it is only
+loaded by hand.
+
+Not tested on this tree.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts    | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 2edd61488..922200261 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -130,9 +130,12 @@ framebuffer0: framebuffer {
+ 		};
+ 	};
+ 
++	/*
++	 * Only the two levels PR #914 ran Panthor at on komodo; higher ones
++	 * need the stock DVFS table and thermal limits first.
++	 */
+ 	komodo_gpu_opp: opp-table-gpu {
+ 		compatible = "operating-points-v2";
+-		status = "disabled";
+ 
+ 		opp-150000000 {
+ 			opp-hz = /bits/ 64 <150000000>;
+@@ -512,12 +515,21 @@ &pcie_1_phy {
+ 	status = "disabled";
+ };
+ 
++/*
++ * Mali-G715 on Panthor, as PR #914's gpu-test overlay enabled it: G3D is
++ * left powered by the bootloader (no power domain yet, pd_ignore_unused).
++ * Panthor is =m: load it only on purpose (blacklist + a guarded modprobe).
++ */
++&cmu_g3d {
++	status = "okay";
++};
++
+ &gpu {
+ 	clocks = <&acpm_ipc ZUMAPRO_CLK_ACPM_GPU>,
+ 		 <&cmu_g3d CLK_GOUT_G3D_COREGROUP>,
+ 		 <&cmu_g3d CLK_GOUT_G3D_STACKS>;
+ 	operating-points-v2 = <&komodo_gpu_opp>;
+-	status = "disabled";
++	status = "okay";
+ };
+ 
+ &ramoops_reserved {

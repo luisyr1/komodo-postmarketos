@@ -1,18 +1,21 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
-> **Status: Nura (edge, `buffyboard` UI) is installed on `userdata` and boots on
-> our unit from slot B to a `login:` prompt on the screen, with SSH over USB
-> (Milestone 2, 2026-11-25). Since the same day the touchscreen works: the
-> owner logged in on the phone itself with the on-screen keyboard, without a
-> cable. No battery, WiFi or GPU yet. Stock Android 17 stays on slot A, but
-> its data was wiped.**
+> **Status: Nura (edge) with the Phosh UI is installed on `userdata` and boots
+> on our unit from slot B (Milestone 3, 2026-11-25): real KMS display with
+> brightness control, Mali-G715 GPU through Panthor and Mesa, touchscreen,
+> battery level readout, `reboot bootloader` to fastboot, SSH over USB. Not
+> working yet: WiFi, Bluetooth, audio, modem, cameras, managed USB-C; charging
+> from a PC port barely keeps up; every boot still spends a slot-B retry.
+> Stock Android 17 stays on slot A, but its data was wiped.**
 >
-> **Estado: Nura (edge, UI `buffyboard`) está instalado en `userdata` y arranca
-> en nuestra unidad desde el slot B hasta un `login:` en pantalla, con SSH por
-> USB (hito 2, 2026-11-25). Desde ese mismo día el táctil funciona: el dueño
-> inició sesión en el propio teléfono con el teclado en pantalla, sin cable.
-> Aún sin batería, WiFi ni GPU. Android 17 stock sigue en el slot A, pero sus
-> datos se borraron.**
+> **Estado: Nura (edge) con la UI Phosh está instalado en `userdata` y arranca
+> en nuestra unidad desde el slot B (hito 3, 2026-11-25): pantalla con KMS
+> real y control de brillo, GPU Mali-G715 con Panthor y Mesa, táctil, lectura
+> del nivel de batería, `reboot bootloader` hasta fastboot, SSH por USB. Aún
+> no funcionan: WiFi, Bluetooth, audio, módem, cámaras ni USB-C gestionado;
+> desde un puerto de PC casi no carga; cada arranque sigue gastando un intento
+> del slot B. Android 17 stock sigue en el slot A, pero sus datos se
+> borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -58,27 +61,41 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   external firmware is needed. Nura was then reinstalled with the
   `buffyboard` UI (framebuffer console with an on-screen keyboard), and the
   owner logged in at `login:` by touch, without a cable: the first local
-  session without a PC. Untested: real multitouch, palm rejection,
-  accuracy/calibration, touch across suspend/resume, a graphical UI.
+  session without a PC (a graphical UI followed in Milestone 3). Untested:
+  real multitouch, palm rejection, accuracy/calibration, touch across
+  suspend/resume.
+- **Milestone 3 (2026-11-25): Phosh on real KMS with the GPU.** Kernel
+  package `pkgrel=2` (11 patches on the same commit) and device package
+  `pkgrel=3`. Display: `gs-decon` stage 2 (real KMS) at 60 Hz, brightness
+  through a minimal `google,km4` panel driver of our own. GPU: Mali-G715 with
+  Panthor and Arm's CSF firmware (Alpine `linux-firmware-arm`); Mesa 26.3.1
+  reports "Mali-G715 MC7 (Panfrost)", OpenGL ES 3.1; no performance numbers.
+  Battery: the MAX77779 fuel gauge reads the percentage and design capacity
+  (5035 mAh); the charger is detected, but from a PC USB port (500 mA) the
+  battery barely charges. `reboot bootloader` reaches fastboot without
+  buttons. Nura reinstalled with Phosh: graphical login by touch,
+  GPU-accelerated, zero failed units after a clean reboot.
+  [docs/MILESTONE-3.md](docs/MILESTONE-3.md).
 - Android data: **lost** when `userdata` was flashed (expected). Slot A,
   bootloader, radio and `vbmeta` untouched.
-- Display: **text console on the screen** (`simpledrm` on the framebuffer the
-  bootloader leaves on, `fbcon`). No GPU or acceleration, no real
-  modesetting, no backlight control, no screen off/on. The display and
-  touchscreen patches are published with the kernel package.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) and
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
 - Known problems: the slot-B retry counter is spent on every boot and nothing
   marks the slot successful (after 3 boots the ABL falls back to slot A;
-  `fastboot set_active b` beforehand); no battery/charging support; the power
-  key is seen but does nothing; no backlight control; on the first boot of
-  every new install `systemd-firstboot.service` fails (no input console) and
-  leaves the system `degraded` for that boot.
+  `fastboot set_active b` beforehand; a marking tool ships as source only,
+  never used); no WiFi/Bluetooth (BCM4390, not supported by mainline
+  `brcmfmac`), audio, modem or cameras; no managed USB-C (a TCPC patch is
+  prepared, not integrated); no verified button actions; power off untested;
+  intermittent USB enumeration failures (`error -71`) on some boots;
+  `buffyboard` had to be disabled by hand under Phosh (it injected phantom
+  key presses); on the first boot of every new install
+  `systemd-firstboot.service` fails (no input console) and leaves the system
+  `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next: slot-B retry counter, buttons, battery/charging, backlight, GPU/KMS,
-  WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Next: slot-B retry counter, buttons, USB-C/charging, WiFi
+  ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
 an earlier stock build); a third-party bring-up names it `google,gs-km4`. On
@@ -92,22 +109,22 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 
 | Component | Our unit | Third-party reports |
 |---|---|---|
-| Boot | **works** (slot B, Nura from `userdata`; each boot spends a slot-B retry) | reported (Omamobile kernel PR #276) |
+| Boot | **works** (slot B, Nura from `userdata`; each boot spends a slot-B retry); `reboot bootloader` reaches fastboot | reported (Omamobile kernel PR #276) |
 | UFS storage | **works**: `userdata` read-write, every other partition kept read-only | reported (PR #276) |
 | Root on userdata | **works** (ext4 image on loop, 4096-byte sectors) | reported (PR #276) |
-| USB gadget (NCM/ACM/SSH) | **works** (SSH to Nura at `172.16.43.1`) | reported (PR #276) |
-| Display | **partial**: text console (`simpledrm` on the bootloader framebuffer), Nura `login:` on screen; no KMS, backlight or GPU | reported (PR #276) |
-| Buttons | **partial**: power key seen by logind, no action; Power+Vol− does not reach fastboot from Linux | reported (PR #276) |
-| Touchscreen | **works** (Synaptics S3908, SPI; typing and login with the `buffyboard` on-screen keyboard); multitouch, palm rejection, accuracy and suspend/resume untested | described but disabled (PR #276) |
-| GPU (Mali-G715) | untested | described but disabled (PR #276) |
-| USB Type-C / charging | charging **not supported** (no `power_supply`); Type-C untested | Type-C described but disabled (PR #276) |
-| WiFi | untested | described but disabled (PR #276) |
-| Bluetooth | untested | unknown |
-| Battery / fuel gauge | **not supported** (no `/sys/class/power_supply`) | unknown |
-| Audio | untested | unknown |
+| USB gadget (NCM/ACM/SSH) | **works** (SSH to Nura at `172.16.43.1`); intermittent `error -71` enumeration failures on some boots | reported (PR #276) |
+| Display | **works**: real KMS (`gs-decon` stage 2), 60 Hz, brightness control; no 120 Hz, no real panel sleep | reported (PR #276) |
+| Buttons | **partial**: keys seen, no verified action under Phosh | reported (PR #276) |
+| Touchscreen | **works** (Synaptics S3908, SPI; Phosh graphical login and use by touch); multitouch, palm rejection, accuracy and suspend/resume untested | described but disabled (PR #276) |
+| GPU (Mali-G715) | **works** (Panthor + Mesa 26.3.1, OpenGL ES 3.1; no measurements) | described but disabled (PR #276) |
+| USB Type-C / charging | charger **detected**, 500 mA from a PC port (barely charges); managed Type-C **not supported** | Type-C described but disabled (PR #276) |
+| WiFi | **not supported** (BCM4390, not in mainline `brcmfmac`) | described but disabled (PR #276) |
+| Bluetooth | **not supported** | unknown |
+| Battery / fuel gauge | **works**, read-only (percentage, design capacity) | unknown |
+| Audio | **not supported** | unknown |
 | Sensors | untested | unknown |
-| Modem / calls / SMS | untested | unknown |
-| Cameras | untested | unknown |
+| Modem / calls / SMS | **not supported** | unknown |
+| Cameras | **not supported** | unknown |
 | NFC | untested | unknown |
 | Fingerprint | untested | unknown |
 
@@ -203,29 +220,41 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   activa (paquete `pkgrel=1`). No hace falta firmware externo. Después se
   reinstaló Nura con la UI `buffyboard` (consola de framebuffer con teclado
   en pantalla) y el dueño inició sesión en el `login:` tocando, sin cable: la
-  primera sesión local sin PC. Sin probar: multitáctil real, rechazo de
-  palma, precisión/calibración, táctil tras suspender/reanudar, una UI
-  gráfica.
+  primera sesión local sin PC (la UI gráfica llegó en el hito 3). Sin
+  probar: multitáctil real, rechazo de palma, precisión/calibración, táctil
+  tras suspender/reanudar.
+- **Hito 3 (2026-11-25): Phosh sobre KMS real con GPU.** Paquete del kernel
+  `pkgrel=2` (11 parches sobre el mismo commit) y del dispositivo `pkgrel=3`.
+  Pantalla: `gs-decon` stage 2 (KMS real) a 60 Hz, brillo con un driver
+  mínimo propio del panel `google,km4`. GPU: Mali-G715 con Panthor y el
+  firmware CSF de Arm (`linux-firmware-arm` de Alpine); Mesa 26.3.1 la
+  presenta como "Mali-G715 MC7 (Panfrost)", OpenGL ES 3.1; sin medidas de
+  rendimiento. Batería: el fuel gauge MAX77779 lee el porcentaje y la
+  capacidad de diseño (5035 mAh); el cargador se detecta, pero desde un USB
+  de PC (500 mA) casi no carga. `reboot bootloader` llega a fastboot sin
+  botones. Nura reinstalado con Phosh: login gráfico tocando, acelerado por
+  GPU, cero unidades fallidas tras un reinicio limpio.
+  [docs/MILESTONE-3.md](docs/MILESTONE-3.md).
 - Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
   bootloader, radio y `vbmeta`, sin tocar.
-- Pantalla: **consola de texto** (`simpledrm` sobre el framebuffer que deja
-  encendido el bootloader, `fbcon`). Sin GPU ni aceleración, sin modesetting
-  real, sin control de brillo, sin apagar/encender. Los parches de pantalla y
-  del táctil están publicados con el paquete del kernel.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) y
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
 - Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
   el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
-  hacer antes `fastboot set_active b`); sin soporte de batería/carga; la
-  tecla de encendido se detecta pero no hace nada; sin control de brillo; en
-  el primer arranque de cada instalación nueva falla
-  `systemd-firstboot.service` (no tiene consola de entrada) y deja el sistema
-  `degraded` en ese arranque.
+  hacer antes `fastboot set_active b`; la herramienta para marcarlo va solo
+  como fuente, sin usar); sin WiFi/Bluetooth (BCM4390, sin soporte en el
+  `brcmfmac` de mainline), audio, módem ni cámaras; sin USB-C gestionado
+  (parche del TCPC preparado, sin integrar); botones sin acción comprobada;
+  apagado sin probar; fallos intermitentes de enumeración USB (`error -71`)
+  en algunos arranques; bajo Phosh hubo que desactivar `buffyboard` a mano
+  (inyectaba teclas fantasma); en el primer arranque de cada instalación
+  nueva falla `systemd-firstboot.service` (no tiene consola de entrada) y
+  deja el sistema `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente: contador del slot B, botones, batería/carga, brillo
-  (backlight), GPU/KMS, WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Siguiente: contador del slot B, botones, USB-C/carga, WiFi
+  ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -235,16 +264,19 @@ el bootloader identifica el panel como `google-km4`.
 ### Estado del hardware
 
 La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (slot B,
-Nura desde `userdata`; cada arranque gasta un intento del slot B); raíz en
-`userdata` **funciona**; UFS: `userdata` en lectura/escritura y el resto en
-solo lectura; gadget USB (NCM/ACM/SSH) **funciona**; pantalla **parcial**:
-consola de texto con el `login:` de Nura, sin KMS, brillo ni GPU; táctil
-**funciona** (Synaptics S3908 por SPI; se escribe y se inicia sesión con el
-teclado en pantalla de `buffyboard`; multitáctil, rechazo de palma, precisión
-y suspensión/reanudación sin probar); botones **parcial**: logind ve
-la tecla de encendido pero no hace nada, y desde Linux Encendido + Volumen −
-no lleva a fastboot; batería y carga **sin soporte** (no hay
-`/sys/class/power_supply`); el resto, **sin probar**. Lo marcado como "reported" lo reporta un
+Nura desde `userdata`; cada arranque gasta un intento del slot B) y
+`reboot bootloader` llega a fastboot; raíz en `userdata` **funciona**; UFS:
+`userdata` en lectura/escritura y el resto en solo lectura; gadget USB
+(NCM/ACM/SSH) **funciona**, con fallos intermitentes `error -71` en algunos
+arranques; pantalla **funciona**: KMS real (`gs-decon` stage 2), 60 Hz,
+control de brillo, sin 120 Hz ni reposo real del panel; GPU **funciona**
+(Panthor + Mesa 26.3.1, OpenGL ES 3.1, sin medidas); táctil **funciona**
+(Synaptics S3908 por SPI; login y uso de Phosh tocando; multitáctil, rechazo
+de palma, precisión y suspensión/reanudación sin probar); botones
+**parcial**: sin acción comprobada bajo Phosh; batería **funciona** en solo
+lectura (porcentaje, capacidad de diseño); cargador **detectado**, 500 mA
+desde un USB de PC (casi no carga); USB-C gestionado, WiFi, Bluetooth, audio,
+módem y cámaras **sin soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido
 salvo donde se indica. Matriz completa en [docs/STATUS.md](docs/STATUS.md).
 

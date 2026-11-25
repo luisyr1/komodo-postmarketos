@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:07:00 +0000
+Subject: [PATCH 7/11] arm64: dts: komodo: enable syscon-reboot-mode
+
+zumapro.dtsi already describes the reboot-mode child of the PMU
+(syscon-reboot-mode, offset 0x810 = SYSIP_DAT0, mode-normal 0x00,
+mode-bootloader 0xfc) but leaves it disabled; the tegu and comet boards
+enable it, komodo did not, so /sys/class/reboot-mode was missing and
+"reboot bootloader" only rebooted slot B.
+
+CONFIG_REBOOT_MODE=y and CONFIG_SYSCON_REBOOT_MODE=y are already set and
+the PMU (google,zuma-pmu, SMC-backed regmap registered as syscon) is
+already enabled on komodo. On zuma, a cold PSCI SYSTEM_RESET clears
+SYSIP_DAT0, so this needs reboot=warm on the command line (PSCI 1.1
+SYSTEM_RESET2), added by device-google-komodo.
+
+Tested on komodo, with reboot=warm.
+---
+ arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 1eb1d38e1..23ade1182 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -175,6 +175,17 @@ &pmu_system_controller {
+ 	status = "okay";
+ };
+ 
++/*
++ * Reboot reason for the bootloader: SYSIP_DAT0 (PMU + 0x810), 0xfc =
++ * bootloader (fastboot), 0x00 = normal, as on zuma husky/akita and zumapro
++ * tegu/comet. A cold PSCI reset clears the register before ABL reads it,
++ * so "reboot bootloader" also needs reboot=warm (PSCI SYSTEM_RESET2) on
++ * the command line; the device package adds it.
++ */
++&reboot_mode {
++	status = "okay";
++};
++
+ /* The watchdog clocks are supplied by these disabled-by-default CMUs. */
+ &cmu_top {
+ 	status = "okay";

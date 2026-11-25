@@ -1,5 +1,5 @@
 From 82a10185eebfb307846e4371e29245ab5b0debb9 Mon Sep 17 00:00:00 2001
-From: builder <builder@komodo.invalid>
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
 Date: Tue, 24 Nov 2026 18:01:00 +0000
 Subject: [PATCH 2/2] arm64: dts: komodo: console=tty0 and fbcon font in
  /chosen bootargs

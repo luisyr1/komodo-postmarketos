@@ -1,0 +1,358 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:08:00 +0000
+Subject: [PATCH 8/11] drm/panel: add a minimal Google KM4 panel driver
+ (brightness only)
+
+The Pixel 9 Pro XL's KM4 (SLSI DDIC, bootloader name google-km4) runs as
+ABL left it. Expose its brightness as a backlight device through the
+gs-dsim-cmd DSI host: DCS 0x51 with a big-endian 16-bit level inside
+Google's normal range (176..3271, default 1209), pixel off (0x22) at 0
+and normal mode (0x13) to leave it, as Google's panel-gs-km4.c does. No
+init sequence, no 0xF0-unlocked vendor register, no reset or supplies,
+no rate switch. Sleep in/out and display on/off are drm_panel hooks only,
+for a display driver with the panel on its output port.
+
+Every write goes through gs-dsim-cmd, which refuses it with -EPERM until
+gs_dsim_cmd.allow_tx=1; the driver then only keeps the level.
+
+Not tested on hardware.
+---
+ drivers/gpu/drm/panel/Kconfig            |  12 +
+ drivers/gpu/drm/panel/Makefile           |   1 +
+ drivers/gpu/drm/panel/panel-google-km4.c | 279 +++++++++++++++++++++++
+ kernel/configs/komodo-display.config     |   3 +
+ 4 files changed, 295 insertions(+)
+ create mode 100644 drivers/gpu/drm/panel/panel-google-km4.c
+
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index d82882275..51d47f7a3 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -225,6 +225,18 @@ config DRM_PANEL_GOOGLE_HK3
+ 	  running, switches it between 60 and 120 Hz, puts it to sleep and
+ 	  exposes its brightness as a backlight.
+ 
++config DRM_PANEL_GOOGLE_KM4
++	tristate "Google KM4 DSI command mode panel (brightness only)"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	help
++	  Say Y or M here if you want to control the Google KM4 1344x2992
++	  command-mode AMOLED panel, found in the Google Pixel 9 Pro XL.
++	  The driver takes over the panel the bootloader left running and
++	  exposes its brightness as a backlight; it sends no initialisation
++	  sequence and does not switch the refresh rate.
++
+ config DRM_PANEL_GOOGLE_TG4C
+ 	tristate "Google TG4C DSI command mode panel"
+ 	depends on OF
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index e9506c172..1350d81b9 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -15,6 +15,7 @@ obj-$(CONFIG_DRM_PANEL_CHIPONE_ICNA35XX) += panel-chipone-icna35xx.o
+ obj-$(CONFIG_DRM_PANEL_CHIPWEALTH_CH13726A) += panel-chipwealth-ch13726a.o
+ obj-$(CONFIG_DRM_PANEL_DSI_CM) += panel-dsi-cm.o
+ obj-$(CONFIG_DRM_PANEL_GOOGLE_HK3) += panel-google-hk3.o
++obj-$(CONFIG_DRM_PANEL_GOOGLE_KM4) += panel-google-km4.o
+ obj-$(CONFIG_DRM_PANEL_GOOGLE_TG4C) += panel-google-tg4c.o
+ obj-$(CONFIG_DRM_PANEL_LVDS) += panel-lvds.o
+ obj-$(CONFIG_DRM_PANEL_SIMPLE) += panel-simple.o
+diff --git a/drivers/gpu/drm/panel/panel-google-km4.c b/drivers/gpu/drm/panel/panel-google-km4.c
+new file mode 100644
+index 000000000..92f11a3d8
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-google-km4.c
+@@ -0,0 +1,279 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Google KM4 DSI command-mode AMOLED panel (Google Pixel 9 Pro XL), minimal.
++ *
++ * Command values from Google's dual MIT/GPL panel driver
++ * (google-modules/display/panels/caimito, panel-gs-km4.c): DCS 0x51 with
++ * the 16-bit level big endian (km4_set_brightness() swaps the bytes before
++ * gs_dcs_set_brightness()), pixel off (0x22) instead of level 0 and normal
++ * mode (0x13) to leave it, display on/off, sleep in/out.
++ *
++ * The bootloader powers the panel on, initialises it and leaves it running
++ * at 60 Hz. This driver takes it over as it is: it never resets it, never
++ * touches its supplies, sends no initialisation sequence and no vendor
++ * (0xF0-unlocked) register, and does not switch the refresh rate. It only
++ * exposes the brightness as a backlight device, inside Google's normal
++ * range (levels 176..3271, 2..1250 nits on retail panels); HBM levels are
++ * left alone. The drm_panel hooks (sleep in/out, display on/off) are only
++ * called by a display driver that has the panel on its output, such as
++ * gs-decon with a DSIM port.
++ *
++ * Nothing reaches the panel until the DSI host allows it (gs-dsim-cmd's
++ * allow_tx); until then the level is kept and sent with the next write.
++ */
++
++#include <linux/backlight.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++
++#include <video/mipi_display.h>
++
++#include <drm/drm_connector.h>
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++
++/* Google's km4_btr_configs[] normal range for EVT1 and later panels */
++#define KM4_MIN_BRIGHTNESS	176
++#define KM4_MAX_BRIGHTNESS	3271
++#define KM4_DEFAULT_BRIGHTNESS	1209
++
++struct km4 {
++	struct drm_panel panel;
++	struct mipi_dsi_device *dsi;
++	/* serialises commands from the panel and backlight paths */
++	struct mutex lock;
++	/* out of sleep: commands and frames reach the panel */
++	bool awake;
++	/* at brightness 0 the panel shows no pixels instead of level 0 */
++	bool pixel_off;
++	u16 brightness;
++};
++
++static inline struct km4 *to_km4(struct drm_panel *panel)
++{
++	return container_of(panel, struct km4, panel);
++}
++
++/* lock held */
++static void km4_write_brightness(struct km4 *ctx, struct mipi_dsi_multi_context *dsi_ctx)
++{
++	u8 dbv[] = { MIPI_DCS_SET_DISPLAY_BRIGHTNESS, ctx->brightness >> 8,
++		     ctx->brightness & 0xff };
++
++	if (!ctx->brightness) {
++		if (!ctx->pixel_off)
++			mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x22);
++		if (!dsi_ctx->accum_err)
++			ctx->pixel_off = true;
++		return;
++	}
++	if (ctx->pixel_off) {
++		mipi_dsi_dcs_write_seq_multi(dsi_ctx, MIPI_DCS_ENTER_NORMAL_MODE);
++		if (!dsi_ctx->accum_err)
++			ctx->pixel_off = false;
++	}
++	mipi_dsi_dcs_write_buffer_multi(dsi_ctx, dbv, sizeof(dbv));
++}
++
++static int km4_prepare(struct drm_panel *panel)
++{
++	struct km4 *ctx = to_km4(panel);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	guard(mutex)(&ctx->lock);
++	if (ctx->awake)
++		return 0;
++	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 120);
++	if (!dsi_ctx.accum_err)
++		ctx->awake = true;
++	km4_write_brightness(ctx, &dsi_ctx);
++
++	return dsi_ctx.accum_err;
++}
++
++static int km4_enable(struct drm_panel *panel)
++{
++	struct km4 *ctx = to_km4(panel);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	guard(mutex)(&ctx->lock);
++	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
++
++	return dsi_ctx.accum_err;
++}
++
++static int km4_disable(struct drm_panel *panel)
++{
++	struct km4 *ctx = to_km4(panel);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	guard(mutex)(&ctx->lock);
++	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 20);
++
++	return dsi_ctx.accum_err;
++}
++
++static int km4_unprepare(struct drm_panel *panel)
++{
++	struct km4 *ctx = to_km4(panel);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	guard(mutex)(&ctx->lock);
++	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 100);
++	if (!dsi_ctx.accum_err)
++		ctx->awake = false;
++
++	return dsi_ctx.accum_err;
++}
++
++/* Google's "1344x2992x60@60" mode, from panel-gs-km4.c (70x156 mm) */
++static const struct drm_display_mode km4_mode = {
++	.clock = (1344 + 80 + 24 + 42) * (2992 + 12 + 4 + 22) * 60 / 1000,
++	.hdisplay = 1344,
++	.hsync_start = 1344 + 80,
++	.hsync_end = 1344 + 80 + 24,
++	.htotal = 1344 + 80 + 24 + 42,
++	.vdisplay = 2992,
++	.vsync_start = 2992 + 12,
++	.vsync_end = 2992 + 12 + 4,
++	.vtotal = 2992 + 12 + 4 + 22,
++	.width_mm = 70,
++	.height_mm = 156,
++	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
++};
++
++static int km4_get_modes(struct drm_panel *panel, struct drm_connector *connector)
++{
++	struct drm_display_mode *mode;
++
++	mode = drm_mode_duplicate(connector->dev, &km4_mode);
++	if (!mode)
++		return 0;
++	drm_mode_set_name(mode);
++	drm_mode_probed_add(connector, mode);
++	connector->display_info.width_mm = km4_mode.width_mm;
++	connector->display_info.height_mm = km4_mode.height_mm;
++
++	return 1;
++}
++
++static const struct drm_panel_funcs km4_panel_funcs = {
++	.prepare = km4_prepare,
++	.enable = km4_enable,
++	.disable = km4_disable,
++	.unprepare = km4_unprepare,
++	.get_modes = km4_get_modes,
++};
++
++static int km4_bl_update_status(struct backlight_device *bl)
++{
++	struct km4 *ctx = bl_get_data(bl);
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++	u16 brightness = backlight_get_brightness(bl);
++
++	/* below Google's normal range, but above 0: its lowest level */
++	if (brightness && brightness < KM4_MIN_BRIGHTNESS)
++		brightness = KM4_MIN_BRIGHTNESS;
++
++	guard(mutex)(&ctx->lock);
++	ctx->brightness = brightness;
++	/* asleep: the level is kept and sent on wake */
++	if (!ctx->awake)
++		return 0;
++	km4_write_brightness(ctx, &dsi_ctx);
++	/* the DSI host does not take commands yet: keep the level */
++	if (dsi_ctx.accum_err == -EPERM)
++		return 0;
++
++	return dsi_ctx.accum_err;
++}
++
++static const struct backlight_ops km4_bl_ops = {
++	.update_status = km4_bl_update_status,
++};
++
++static int km4_probe(struct mipi_dsi_device *dsi)
++{
++	struct device *dev = &dsi->dev;
++	struct backlight_properties props = {
++		.type = BACKLIGHT_RAW,
++		.brightness = KM4_DEFAULT_BRIGHTNESS,
++		.max_brightness = KM4_MAX_BRIGHTNESS,
++		.scale = BACKLIGHT_SCALE_NON_LINEAR,
++	};
++	struct backlight_device *bl;
++	struct km4 *ctx;
++	int ret;
++
++	ctx = devm_drm_panel_alloc(dev, struct km4, panel, &km4_panel_funcs,
++				   DRM_MODE_CONNECTOR_DSI);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++
++	ret = devm_mutex_init(dev, &ctx->lock);
++	if (ret)
++		return ret;
++
++	ctx->dsi = dsi;
++	ctx->brightness = KM4_DEFAULT_BRIGHTNESS;
++	mipi_dsi_set_drvdata(dsi, ctx);
++
++	/* the stock link: 4 lanes at 1368 Mbit/s (DTBO dsim-modes hs-clk) */
++	dsi->lanes = 4;
++	dsi->format = MIPI_DSI_FMT_RGB888;
++	dsi->mode_flags = MIPI_DSI_CLOCK_NON_CONTINUOUS;
++
++	/* the bootloader left it out of sleep with the display on */
++	ctx->awake = true;
++	ctx->panel.prepared = true;
++	ctx->panel.enabled = true;
++	ctx->panel.prepare_prev_first = true;
++
++	bl = devm_backlight_device_register(dev, dev_name(dev), dev, ctx,
++					    &km4_bl_ops, &props);
++	if (IS_ERR(bl))
++		return dev_err_probe(dev, PTR_ERR(bl), "failed to register backlight\n");
++	ctx->panel.backlight = bl;
++
++	drm_panel_add(&ctx->panel);
++
++	ret = mipi_dsi_attach(dsi);
++	if (ret < 0) {
++		drm_panel_remove(&ctx->panel);
++		return dev_err_probe(dev, ret, "failed to attach to DSI host\n");
++	}
++
++	return 0;
++}
++
++static void km4_remove(struct mipi_dsi_device *dsi)
++{
++	struct km4 *ctx = mipi_dsi_get_drvdata(dsi);
++
++	mipi_dsi_detach(dsi);
++	drm_panel_remove(&ctx->panel);
++}
++
++static const struct of_device_id km4_of_match[] = {
++	{ .compatible = "google,km4" },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, km4_of_match);
++
++static struct mipi_dsi_driver km4_driver = {
++	.probe = km4_probe,
++	.remove = km4_remove,
++	.driver = {
++		.name = "panel-google-km4",
++		.of_match_table = km4_of_match,
++	},
++};
++module_mipi_dsi_driver(km4_driver);
++
++MODULE_DESCRIPTION("Google KM4 DSI command mode panel, brightness only");
++MODULE_LICENSE("GPL");
+diff --git a/kernel/configs/komodo-display.config b/kernel/configs/komodo-display.config
+index e5023d55e..c6257d728 100644
+--- a/kernel/configs/komodo-display.config
++++ b/kernel/configs/komodo-display.config
+@@ -14,3 +14,6 @@ CONFIG_FB=y
+ CONFIG_FRAMEBUFFER_CONSOLE=y
+ CONFIG_VT_CONSOLE=y
+ CONFIG_FONT_TER16x32=y
++# KM4 panel brightness through gs-dsim-cmd (module: needs the backlight
++# class, which is =m in this config).
++CONFIG_DRM_PANEL_GOOGLE_KM4=m

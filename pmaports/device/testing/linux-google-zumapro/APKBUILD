@@ -8,7 +8,7 @@
 maintainer="komodo port <komodo@example.invalid>"
 pkgname=linux-google-zumapro
 pkgver=7.3_rc6
-pkgrel=1
+pkgrel=2
 pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
 arch="aarch64"
 _carch="arm64"
@@ -51,7 +51,11 @@ makedepends="
 # ffd33b7 (head of PR #276, 2026-11-23). The GitHub tarball unpacks to
 # linux-omamobile-<commit> and was checked file by file to be identical to
 # the tree tested in Milestone 1. The three display patches ("display A")
-# go on top.
+# go on top, then the touchscreen (0004), battery (0005-0006), reboot-mode
+# (0007, needs reboot=warm from device-google-komodo), KM4 panel brightness
+# (0008-0009, inert until gs_dsim_cmd.allow_tx=1), gs-decon hold_boot_fb
+# (0010) and the GPU node (0011; panthor autoloads since device-google-komodo
+# r3, it needs the CSF firmware from linux-firmware-arm).
 _commit="ffd33b7ddc716eb3568fff9f8d337a4032d109eb"
 _config="config-$_flavor.$arch"
 source="
@@ -61,6 +65,13 @@ source="
 	0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
 	0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
 	0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch
+	0005-arm64-dts-komodo-describe-the-MAX77779-fuel-gauge.patch
+	0006-arm64-dts-komodo-describe-the-MAX77779-charger.patch
+	0007-arm64-dts-komodo-enable-syscon-reboot-mode.patch
+	0008-drm-panel-add-a-minimal-Google-KM4-panel-driver.patch
+	0009-arm64-dts-komodo-DSIM0-as-a-DCS-command-host-for-the-KM4.patch
+	0010-drm-google-gs-decon-hold-komodo-s-boot-framebuffer-aperture.patch
+	0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
 "
 builddir="$srcdir/linux-omamobile-$_commit"
 
@@ -104,9 +115,16 @@ package() {
 # publishing (content unchanged), hence their checksums.
 sha512sums="
 c2e442abba3211fdd29c0a3b0851270c7b5fd2438f98226ad206c7d331c378d032ffb0187378605258754ba9af83775495439c1a3b13ee66f1701ec55f9c1d76  linux-google-zumapro-ffd33b7ddc716eb3568fff9f8d337a4032d109eb.tar.gz
-c679e856c170b8954695ad82359ba6210e75fe2a212f83a345a12c9de8b79e5d96f979d31cc259b90a08fd5969d676c6c0a9287a9cb186a6a7db8f50a7436573  config-google-zumapro.aarch64
-532c02802c282f9e5bde813055b9f33c234f52649eaec5fc172540e347494537e650ccb188281560de2857716dfcee20220cdbe37816fb737f1973651389924b  0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
-370d0a844f296458fb5d0e788fc820f72ee4be25e5213c7184a62f466af8d30f41af6773cb0f6682f76288093e8508640e0550d069e4df684497ded61fd15aad  0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
-bfd90278b6d769c9be4ec9098b6cb5a8407cd500b983d9a81fabd40a274f5c8e57689cc10503a26b59cf47f96a911611b4c20b171ce822339b2e32f58f673e79  0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
-44e44b4ed9b17033182cf6d089a8264461afb00fd89177ef810c58f8a47e85397b2c9b4ef246b479e12e657826be72b3186a920f8c72aa23222f7153f693bda1  0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch
+52bda980673a02fec48a212559a3148bfe7dad4c401d8383ff88537747e000f5df109b6585cd744936b66b2584bfadc2e6dc9cac724081c7c3c1390bc723f2b5  config-google-zumapro.aarch64
+fa0b789ed868e969eb78c551efa86d2c362b175503bb119b66205bd6409a75ea6a5d9a0b82002d289ad68a854a9b9288e36fbfab97464d647498a8528ea144d9  0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
+63d7560633b7749e5169411a554a18d6296499600dfe9c314a424de49cffac9d0e5deb4acce080cda42ae54808beda7163341d92695130888064677d49704060  0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
+3a968afc965f90b020e6d091b60615dba1e321c944925636845d9a97feeec051c26b4800664d230bc1eecf51d68949ec8cbe70a6cbb2836a8fb0404ccefc353c  0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
+ce33dae79ef81c7e2102f59915b61567065b05aaa095be1142cb4516dbf4abe414ec676a6b3dace50c5a991bb2bbea4bc67a82ae0997a232dd883423559445d3  0004-arm64-dts-komodo-enable-the-Synaptics-S3908-touchscreen.patch
+7d971c3394e850e7a85ad63ce84e13bbcead269ef354513ddc4ac37e773288139c368bbea614837a735780695262d56e79ace3effd76e8b5551f023b7c1f37cf  0005-arm64-dts-komodo-describe-the-MAX77779-fuel-gauge.patch
+180a5bf63104adf4069c77908c18299af252f1bb50f7f27f2753cb84f6c213e2030a62c81fb23fff5fd5ddcd8e5bef2f80da89f2b2d2c1c0d496b06a0179cbd8  0006-arm64-dts-komodo-describe-the-MAX77779-charger.patch
+03b33832a226831c67e8ad789c2faac8de52294e3cf4722005f11bd8c5c14998b92372e790722042f8345c3f538fa884e6f128870f825a22e35ad6aadab54da6  0007-arm64-dts-komodo-enable-syscon-reboot-mode.patch
+3b1773e5f3557086353a3f481ea03e3bec9a858e01f9bf9c5d157a41b3916f57226615ec52e19a19aababdbadccd306145d896ad99174e916a5a12525f78c244  0008-drm-panel-add-a-minimal-Google-KM4-panel-driver.patch
+26ddb746ce61a7445c2c055e738fce1b2dffb7307fabc2124155577759691dbd74c40fa23c5267dd5531fc87afaec87ccf47d7be1f43d7a3a45ab5d9487010f0  0009-arm64-dts-komodo-DSIM0-as-a-DCS-command-host-for-the-KM4.patch
+163768f80a26d7860e7a644035d185e07b275ed79f942cd19e6ea23a81040971b582c93d3066bb70bfbf686866fcd2e4ed0b024b4d632cd9e2270704791e0839  0010-drm-google-gs-decon-hold-komodo-s-boot-framebuffer-aperture.patch
+7544b2cfc3a194816bf2732f2fb3e0e0ede9a79b14dcfd20ba488a0b050bc33df8678c24bb0dbc485dffa664b40f716a32f047d1b9467e75fb89bdbd85542fb2  0011-arm64-dts-komodo-enable-the-Mali-G715-Panthor.patch
 "

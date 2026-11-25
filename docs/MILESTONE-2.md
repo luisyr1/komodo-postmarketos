@@ -14,6 +14,10 @@ with an on-screen keyboard) instead of `console`; we reinstalled Nura that
 way and logged in on the phone by touch. The steps below are unchanged apart
 from that UI choice; see [JOURNAL.md](JOURNAL.md).*
 
+*Later note (2026-11-25): Milestone 3 builds on this one with the Phosh UI,
+real KMS, the GPU, the battery readout and `reboot bootloader`
+(kernel `pkgrel=2`, device `pkgrel=3`): [MILESTONE-3.md](MILESTONE-3.md).*
+
 Superado en nuestra unidad el 2026-11-25 (ver [JOURNAL.md](JOURNAL.md)).
 Descripción reproducible de lo que hicimos: Nura (edge, UI console, systemd)
 construido con pmbootstrap, su raíz escrita en `userdata` y arrancado por el
@@ -27,6 +31,10 @@ táctil). Con táctil, la UI recomendada pasa a ser `buffyboard` (consola de
 framebuffer con teclado en pantalla) en vez de `console`; reinstalamos Nura
 así e iniciamos sesión en el teléfono tocando. Los pasos no cambian salvo esa
 elección de UI; ver [JOURNAL.md](JOURNAL.md).*
+
+*Nota posterior (2026-11-25): el hito 3 parte de este con la UI Phosh, KMS
+real, la GPU, la lectura de batería y `reboot bootloader` (kernel
+`pkgrel=2`, dispositivo `pkgrel=3`): [MILESTONE-3.md](MILESTONE-3.md).*
 
 > **Irreversible: flashing `userdata` destroys all Android data on the phone.**
 > There is only one `userdata`, shared by both slots. Back up anything you
@@ -82,8 +90,9 @@ elección de UI; ver [JOURNAL.md](JOURNAL.md).*
 Note: some comments inside the package files mention `hito2/PLAN.md`; that is
 the owner's private working plan. This document is its public equivalent. The
 package files are published byte-identical to the ones we built, except the
-`Date:` lines of the kernel patches, normalised to UTC (their checksums
-in the APKBUILD were updated accordingly).
+`Date:` lines of the kernel patches, normalised to UTC, and (since
+Milestone 3) their `From:` lines, normalised to the project's public author
+identity (their checksums in the APKBUILD were updated accordingly).
 
 ### 2. Separate pmaports copy
 

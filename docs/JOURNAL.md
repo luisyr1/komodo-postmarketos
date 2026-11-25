@@ -539,3 +539,126 @@ Error propio: un servicio temporal de diagnóstico instalado a mano en la raíz
 dejó `/etc` y `/usr` con propietario incorrecto y rompió `sudo`; se reparó
 desde el debug shell y la reinstalación lo dejó limpio. Lección: no extraer un
 tar como root conservando propietarios ajenos.
+
+---
+
+## 2026-11-25 — Milestone 3: Phosh on KMS, GPU, battery readout, reboot to bootloader / Hito 3: Phosh sobre KMS, GPU, lectura de batería, reinicio al bootloader
+
+Procedure: [MILESTONE-3.md](MILESTONE-3.md). Packages updated in
+[`../pmaports/device/testing/`](../pmaports/device/testing/):
+`linux-google-zumapro` `pkgrel=2` (11 patches on commit `ffd33b7`) and
+`device-google-komodo` `pkgrel=3`.
+
+New kernel patches:
+
+- 0005 and 0006: MAX77779 fuel gauge (read-only driver) and charger on
+  `hsi2c6` (`i2c@108d0000`), both drivers already built as modules.
+- 0007: `syscon-reboot-mode` on the PMU, together with `reboot=warm` on the
+  command line (a cold PSCI reset clears the reboot reason register).
+- 0008: a minimal `google,km4` panel driver, brightness only (backlight range
+  0..3271, 0 = pixel off); config gains `CONFIG_DRM_PANEL_GOOGLE_KM4=m`.
+- 0009: DSIM0 as a DCS command host for the panel, with no port to DECON0.
+- 0010: `gs-decon` keeps komodo's boot framebuffer aperture
+  (`hold_boot_fb`), so the `simple-framebuffer` can stay in the DT as a
+  fallback without a second, phantom output.
+- 0011: Mali-G715 node, `cmu_g3d` and the 150/302 MHz OPP table enabled.
+
+Results on our unit:
+
+- **Display:** from the `simpledrm` console to real KMS: `gs-decon` stage 2
+  (`gs_decon.stage=2 gs_decon.fbdev=1 gs_dsim_cmd.allow_tx=1`, from the
+  device package's command line), 60 Hz. Brightness control works.
+- **Battery:** the fuel gauge reads the charge percentage and a design
+  capacity of 5035 mAh. The charger is detected. From a PC USB port the input
+  is 500 mA: the battery holds, it barely charges.
+- **Reboot to the bootloader:** `reboot bootloader` reaches fastboot with no
+  buttons and without spending an extra slot B retry.
+- **GPU:** Mali-G715 with Panthor and the CSF firmware
+  `arm/mali/arch11.8/mali_csffw.bin` (Alpine package `linux-firmware-arm`).
+  Mesa 26.3.1 reports "Mali-G715 MC7 (Panfrost)", OpenGL ES 3.1. At first
+  `panthor` was blacklisted in the device package, out of caution: G3D has no
+  power domain driver and depends on the bootloader leaving it on. After
+  loading it by hand and testing it, the blacklist was dropped (device
+  `pkgrel=3`); it now loads by itself ~5 s into the boot. No performance
+  measurements.
+- **UI:** Nura reinstalled with Phosh (phoc, greetd with phrog, stevia
+  keyboard) through pmbootstrap (`ui = phosh`, extra packages
+  `linux-firmware-arm,mesa-dri-gallium,mesa-utils,kmscube`): graphical login
+  by touch, GPU-accelerated. After a clean reboot, zero failed systemd units.
+- **Kernel updates without reinstalling:** copy the kernel apk to the phone,
+  `apk add --allow-untrusted --no-network`, let the phone regenerate its boot
+  files, copy them back, rebuild the images with `mkimages-pmos.sh` and flash
+  only `boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b`.
+
+Problems and limits:
+
+1. Found and fixed: `buffyboard.service` (the text console's on-screen
+   keyboard) was still active under Phosh. It got the same touches and
+   injected key presses, so phantom characters showed up in the PIN field.
+   Fixed with `systemctl disable --now buffyboard`. Still to find out: what
+   enables it on a Phosh install.
+2. WiFi/Bluetooth: Broadcom BCM4390 over PCIe (ID `14e4:4438`); mainline
+   `brcmfmac` does not support it. Not working.
+3. Audio, modem, cameras: not working, not started.
+4. Managed USB-C (TCPC): a patch is prepared, not integrated.
+5. Slot B retry counter: unchanged, each boot spends 1 of 3, reloaded with
+   `fastboot set_active b`. The device package now carries a
+   `komodo-bootctl` tool as source; it is not compiled and has never been
+   used to write `devinfo`.
+6. Buttons: no verified action. Power off: not tested.
+7. USB: the `error -71` enumeration failure seen once in Milestone 2 came
+   back on some boots. Intermittent, cause unknown.
+8. The commit messages of patches 0008–0011 still say they are untested
+   (and 0011 that `panthor` is blacklisted, also in a DTS comment);
+   they are kept as built, and the docs describe the current state.
+
+Publication note: the `From:` line of all 11 kernel patches (including the
+already published 0001–0004) was normalised to the project's public author
+identity, and the patch checksums in the APKBUILD were updated accordingly.
+The patch bodies are unchanged.
+
+Device state after this entry: Nura with Phosh (kernel package `pkgrel=2`,
+device package `pkgrel=3`) on `userdata`, booting from slot B; `vbmeta_b`
+stock; slot A untouched.
+
+Resumen: hito 3. Paquete del kernel `linux-google-zumapro` `pkgrel=2`, 11
+parches sobre `ffd33b7`: 0005 y 0006 fuel gauge (driver de solo lectura) y
+cargador MAX77779 en `hsi2c6`; 0007 `syscon-reboot-mode` con `reboot=warm`;
+0008 driver mínimo del panel `google,km4` (solo brillo, rango 0..3271, 0 =
+píxel apagado; `CONFIG_DRM_PANEL_GOOGLE_KM4=m`); 0009 DSIM0 como host DCS;
+0010 `hold_boot_fb` en `gs-decon`; 0011 Mali-G715 (nodo `gpu`, `cmu_g3d`,
+OPP). Paquete del dispositivo `pkgrel=3`. Pantalla: de consola `simpledrm` a
+KMS real (`gs-decon` stage 2, cmdline `gs_decon.stage=2 gs_decon.fbdev=1
+gs_dsim_cmd.allow_tx=1`), 60 Hz, control de brillo funcionando. Batería: el
+fuel gauge lee el porcentaje y la capacidad de diseño (5035 mAh); el
+cargador se detecta; desde un USB de PC la entrada es de 500 mA: mantiene,
+casi no carga. `reboot bootloader` llega a fastboot sin botones y sin gastar
+un intento extra del slot. GPU: Mali-G715 con Panthor y el firmware CSF
+`arm/mali/arch11.8/mali_csffw.bin` (paquete `linux-firmware-arm`); Mesa
+26.3.1 la presenta como "Mali-G715 MC7 (Panfrost)", OpenGL ES 3.1. Primero
+estuvo en lista negra por prudencia (G3D no tiene driver de power domain y
+depende de que el bootloader lo deje encendido); tras probarla se quitó la
+lista negra (dispositivo `pkgrel=3`) y se carga sola a los ~5 s. Sin medidas
+de rendimiento. Interfaz: Phosh (phoc, greetd/phrog, teclado stevia)
+instalado con pmbootstrap (`ui = phosh` y los paquetes extra
+`linux-firmware-arm,mesa-dri-gallium,mesa-utils,kmscube`), login gráfico
+táctil acelerado por GPU; tras un reinicio limpio, cero unidades fallidas.
+Fallo encontrado y resuelto: `buffyboard.service` seguía activo bajo Phosh,
+recibía los mismos toques e inyectaba teclas (caracteres fantasma en el
+PIN); solución `systemctl disable --now buffyboard`; pendiente averiguar qué
+lo habilita. Kernel nuevo sin reinstalar: copiar el apk, `apk add
+--allow-untrusted --no-network`, el teléfono regenera las imágenes de
+arranque, se recogen, se reempaquetan con `mkimages-pmos.sh` y se flashean
+solo `boot_b`, `vendor_boot_b` y `vendor_kernel_boot_b`. No funciona
+todavía: WiFi/BT (BCM4390 por PCIe, `14e4:4438`, sin soporte en el
+`brcmfmac` de mainline), audio, módem, cámaras, USB-C gestionado (parche
+preparado, sin integrar), contador del slot B (la herramienta
+`komodo-bootctl` va como fuente, sin compilar ni usar para escribir),
+botones sin acción comprobada, apagado sin probar, y el fallo USB `error -71`
+reaparece de forma intermitente en algunos arranques (causa desconocida).
+Los mensajes de los parches 0008–0011 y un comentario del DTS del 0011
+siguen diciendo que no están probados o que `panthor` está en lista negra;
+se conservan como se compilaron. Nota de publicación: la línea `From:` de
+los 11 parches (también los 0001–0004 ya publicados) se normalizó a la
+identidad pública del proyecto y se actualizaron sus sumas en el APKBUILD;
+el contenido de los parches no cambia.

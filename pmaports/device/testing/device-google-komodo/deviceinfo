@@ -13,8 +13,8 @@ deviceinfo_arch="aarch64"
 
 # Device related
 deviceinfo_chassis="handset"
-# simpledrm only (ABL framebuffer, variant A); no verified GPU/KMS stack
-deviceinfo_drm="false"
+# gs-decon flip-only KMS (gs_decon.stage=2 in kernel-cmdline.conf); GPU optional
+deviceinfo_drm="true"
 deviceinfo_getty="ttyGS0;115200"
 
 # Bootloader related

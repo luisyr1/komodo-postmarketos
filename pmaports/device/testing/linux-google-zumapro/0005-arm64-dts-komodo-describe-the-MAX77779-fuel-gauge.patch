@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 18:05:00 +0000
+Subject: [PATCH 5/11] arm64: dts: komodo: describe the MAX77779 fuel gauge
+ (read-only)
+
+The stock komodo DTBO (board_id 0x60806, rev 0x10000) has max77779fg@36
+on hsi2c_6 (i2c@108d0000), status okay. Bind it to the in-tree read-only
+max77779_battery driver (CONFIG_BATTERY_MAX77779=m), which never writes
+the gauge and refuses it if FSTAT says the model is not ready. No
+interrupt (the stock one goes through the MAX77779 PMIC's interrupt
+controller, which has no driver here); the driver polls.
+
+Tested on komodo.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts    | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 539419c20..2855d8d0c 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -382,6 +382,22 @@ connector {
+ 			try-power-role = "sink";
+ 		};
+ 	};
++
++	/*
++	 * The MAX77779 fuel gauge (stock DTBO entry board_id 0x60806:
++	 * max77779fg@36 on hsi2c_6, "maxim,max77779fg-i2c"). Read-only:
++	 * max77779_battery writes no register and refuses a gauge whose
++	 * firmware model is not ready. The 2 mOhm shunt is the MAX77779
++	 * reference value used on the Pixel 9a (tegu); check it against
++	 * charge_full_design (stock google,chg-battery-capacity = 4942 mAh).
++	 * No power-supplies link yet: the charger node does not exist, and
++	 * a link to a missing supply defers the probe forever.
++	 */
++	fuel-gauge@36 {
++		compatible = "maxim,max77779-fg";
++		reg = <0x36>;
++		shunt-resistor-micro-ohms = <2000>;
++	};
+ };
+ 
+ &usi2_hsi0 {

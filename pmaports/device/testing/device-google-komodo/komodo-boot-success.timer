@@ -1,0 +1,15 @@
+# A boot counts as good when it has stayed up for 2 minutes after
+# multi-user.target (USB gadget, sshd and getty are up well before that).
+# A kernel that panics or hangs earlier does not get marked, and still
+# spends one of the 3 retries.
+[Unit]
+Description=Mark boot slot B successful 2 minutes after boot (komodo)
+ConditionPathExists=!/etc/komodo/no-boot-success
+After=multi-user.target
+
+[Timer]
+OnActiveSec=2min
+AccuracySec=5s
+
+[Install]
+WantedBy=multi-user.target
