@@ -338,3 +338,108 @@ pantalla; táctil sin probar. El slot B lleva ahora las cinco imágenes de
 Android 17 `CP4A.261105.040.A1`. Sigue siendo solo RAM; Nura no instalado. Los
 parches de pantalla aún no están publicados en el repo; se publicarán más
 adelante.
+
+---
+
+## 2026-11-25 — Milestone 2: Nura on userdata / Hito 2: Nura en userdata
+
+Procedure: [MILESTONE-2.md](MILESTONE-2.md). Packages published in
+[`../pmaports/device/testing/`](../pmaports/device/testing/), images script
+[`../scripts/mkimages-pmos.sh`](../scripts/mkimages-pmos.sh).
+
+Build:
+
+- pmbootstrap 3.12.1 with a separate configuration file, work directory and
+  pmaports copy; channel edge, UI console, systemd.
+- A real `pmbootstrap kconfig check` of `linux-google-zumapro` passed.
+- Kernel built with Alpine's clang in ~21 min (16 threads); `uname -r` =
+  `7.3.0-rc6-zumapro`.
+- The upstream kernel repository has been renamed on GitHub to
+  `derekross/linux-omamobile` (the old `linux-omarchy-mobile` URL redirects),
+  and the folder inside the tarball is `linux-omamobile-<commit>`; the
+  APKBUILD's `builddir` was corrected. The tarball of the pinned commit
+  `ffd33b7ddc716eb3568fff9f8d337a4032d109eb` is identical, file by file, to
+  the tree tested in Milestone 1.
+
+Rehearsal without `userdata` (non-destructive):
+
+- Only the five `_b` images flashed, with Nura's initramfs (15 MB zstd,
+  recompressed to lz4 legacy); `userdata` not touched.
+- The ABL accepted them; USB gadget after ~28 s; `ping 172.16.43.1`
+  answered.
+- The initramfs dropped to its debug shell because it found no root, as
+  expected.
+- Android's `userdata` stayed intact: Android booted normally afterwards.
+
+Install:
+
+- `userdata` flashed from the bootloader with the sparse image (834 MB;
+  fastboot split it into 4 chunks, ~23 s), then booted.
+- Nura edge reaches `login:` on the screen (simpledrm console, display variant
+  A, parameters in the DTB bootargs).
+- Over SSH on USB NCM (`172.16.43.1`): system `running`, 0 failed units, ext4
+  root on a loop device over `userdata` with 4096-byte sectors, resized to
+  221.6 GiB, 15.1 GiB of RAM, 8 CPUs, slot `_b`, UFS read-only guard
+  `--check` = 0.
+- Android data lost (expected). Slot A, bootloader, radio and `vbmeta` not
+  touched.
+
+Problems and limits:
+
+1. Slot B retry counter: every boot spends 1 of 3 and nothing marks the slot
+   successful; when they run out the ABL boots slot A. `fastboot set_active b`
+   is needed beforehand. Unresolved.
+2. On Nura's first boot the PC did not enumerate the USB device (errors
+   `-71`). It did not happen again on later boots. Cause unknown.
+3. Several later "USB drops" turned out to be on the PC side: the host's
+   static IP was lost on every re-enumeration. Fixed with a NetworkManager
+   profile that autoconnects by the MAC `02:6b:6f:6d:6f:01`. The kernel-module
+   hypothesis and the UDC-rebind hypothesis were tested live and ruled out.
+4. Buttons: logind logs "Power key pressed short", but there is no poweroff or
+   reboot. From Linux, Power+Vol− does not reach fastboot; we reached it with a
+   button-forced reboot and then holding Vol− (the exact combination was not
+   written down).
+5. No touch input: typing at the login is impossible; access only over SSH or
+   the debug shell (initramfs telnet with `pmos.debug-shell`).
+6. No `/sys/class/power_supply`: battery and charging unsupported.
+7. With `pmos.debug-shell`, the debug shell on `ttyGS0` comes out garbled (two
+   readers); telnet works.
+8. Only two modules load by modalias, `clk-acpm` and `gs101_acpm_tmu`;
+   cpufreq (schedutil) works with them.
+
+Device state after this entry: Nura on `userdata`, booting from slot B;
+`vendor_boot_b` temporarily carries `pmos.debug-shell`; `vbmeta_b` stock;
+slot A untouched (Android 17 `CP4A.261105.040.A1`, without its data).
+
+The display patches, the two packages and the image script are now published
+in this repository (the patches' `Date:` lines normalised to UTC, checksums
+updated).
+
+Resumen: hito 2 superado. pmbootstrap 3.12.1 con configuración y copia de
+pmaports separadas, canal edge, UI console, systemd; `kconfig check` real
+pasó; kernel compilado con el clang de Alpine en ~21 min (16 hilos),
+`uname -r` = `7.3.0-rc6-zumapro`. El repo del kernel se renombró en GitHub a
+`derekross/linux-omamobile` (la URL antigua redirige) y la carpeta del
+tarball es `linux-omamobile-<commit>`; se corrigió el `builddir`. El tarball
+del commit fijado es idéntico fichero a fichero al árbol del hito 1. Ensayo
+sin tocar `userdata`: solo las cinco `_b` con el initramfs de Nura (15 MB
+zstd, recomprimido a lz4 legacy); el ABL lo aceptó, gadget USB a los ~28 s,
+ping a `172.16.43.1`, el initramfs cayó al debug shell por no encontrar raíz,
+y Android arrancó después con sus datos intactos. Después, `userdata`
+flasheado desde el bootloader con el sparse (834 MB, 4 trozos, ~23 s): Nura
+edge llega a `login:` en pantalla; por SSH, sistema `running`, 0 unidades
+fallidas, raíz ext4 en loop sobre `userdata` (sector 4096) ampliada a
+221,6 GiB, 15,1 GiB de RAM, 8 CPU, slot `_b`, guardia del UFS `--check` = 0.
+Datos de Android perdidos (esperado); slot A, bootloader, radio y `vbmeta`
+sin tocar. Problemas: contador de intentos del slot B sin resolver (hay que
+hacer `set_active b` antes de agotarlo); en el primer arranque el PC no
+enumeró el USB (errores `-71`), no se repitió; las "caídas de USB" eran del
+PC (IP estática perdida en cada reenumeración; perfil de NetworkManager por
+MAC), y las hipótesis de módulos y del religado de la UDC se descartaron en
+vivo; logind ve la tecla de encendido pero no apaga ni reinicia, y desde Linux
+Encendido + Volumen − no lleva a fastboot (se llegó con un reinicio forzado
+por botones manteniendo luego Volumen −, combinación exacta sin anotar); sin
+táctil; sin `/sys/class/power_supply`; el debug shell en `ttyGS0` sale
+entremezclado, telnet funciona; solo cargan `clk-acpm` y `gs101_acpm_tmu`, y
+cpufreq funciona. Estado: Nura en `userdata` arrancando desde el slot B;
+`vendor_boot_b` lleva de momento `pmos.debug-shell`.

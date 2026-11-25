@@ -1,0 +1,3 @@
+/usr/lib/udev/rules.d/60-google-komodo-ufs-ro.rules
+/usr/libexec/google-komodo-ufs-ro
+/etc/unudhcpd.conf

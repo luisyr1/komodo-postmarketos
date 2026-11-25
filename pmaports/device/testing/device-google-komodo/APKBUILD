@@ -1,0 +1,67 @@
+# Reference: <https://postmarketos.org/devicepkg>
+maintainer="komodo port <komodo@example.invalid>"
+pkgname=device-google-komodo
+pkgdesc="Google Pixel 9 Pro XL"
+pkgver=1
+pkgrel=0
+url="https://postmarketos.org"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+# android-tools-mkbootimg: boot-deploy runs mkbootimg (generate_bootimg)
+depends="
+	android-tools-mkbootimg
+	linux-google-zumapro
+	postmarketos-base
+"
+makedepends="devicepkg-dev"
+subpackages="$pkgname-systemd"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+	initfs-hook.sh
+	60-google-komodo-ufs-ro.rules
+	google-komodo-ufs-ro
+	google-komodo-initfs.files
+	unudhcpd.conf
+"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+
+	# UFS read-only guard (rootfs and, through the .files list, initramfs)
+	install -Dm644 "$srcdir"/60-google-komodo-ufs-ro.rules \
+		-t "$pkgdir"/usr/lib/udev/rules.d/
+	install -Dm755 "$srcdir"/google-komodo-ufs-ro \
+		-t "$pkgdir"/usr/libexec/
+	install -Dm644 "$srcdir"/google-komodo-initfs.files \
+		"$pkgdir"/usr/share/mkinitfs/files/10-device-google-komodo.files
+
+	# USB network addresses (initramfs and unudhcpd@usb0)
+	install -Dm644 "$srcdir"/unudhcpd.conf "$pkgdir"/etc/unudhcpd.conf
+}
+
+systemd() {
+	pkgdesc="$pkgdesc (systemd: login prompt on the USB serial console)"
+	install_if="$pkgname=$pkgver-r$pkgrel systemd"
+
+	# serial-getty@ttyGS0: ttyGS0 is the ACM function the initramfs hook
+	# adds to the USB gadget. BindsTo=dev-ttyGS0.device in the template.
+	mkdir -p "$subpkgdir"/usr/lib/systemd/system/getty.target.wants
+	ln -s ../serial-getty@.service \
+		"$subpkgdir"/usr/lib/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
+}
+
+sha512sums="
+24d9281903e720ed4931695a664d4e2e0488ba449a69c1d870e224964677436aed76c800763118c7ef3e33becd12e39390040aa8e7c4737dcd39a1d554a04842  deviceinfo
+5a3405c9e9ef71ba4832ceec7f1a6afe212393b3d185535320eb33bfd2d5a7afcb52aa5cb18b395a091d07bea8a84d7db75bea5322a5117aa82ea7a8b7d08de3  kernel-cmdline.conf
+c99aac7b707c937d9c5e725c589074c24439a6ddabc0ccecc9bc189dfdd4943479f3bdfb992ef99d947aaa26193ba1813385a469bf5db5c82fd9a86201566163  initfs-hook.sh
+f658ef2c4a25fbdaecc9b631d89d8f24e1e2f21fe8a56da1ca627006f61b3602a8690de7a249f75dfeb5b9228e39bd7ffee7e14dd79826e48372e3d637936b8d  60-google-komodo-ufs-ro.rules
+b318813937eb0c56152f46203df3ed108747fa6a0f410574a77ddfb04aac5cc8d4056019141654bf6ff9749df184868f0fc04c030bf1f0d11ab37518895875fc  google-komodo-ufs-ro
+7b0c1c075b7cf1af57736018202055ffac5d5d47bab2a3f2c1cb2a255b86efae21f1fb2e112176985d8776b00d8ac3925716b556db2f007259baffd760d7187e  google-komodo-initfs.files
+781dcdb4a362b43fdd15097d32febef9cc0a40e7ce09139ef2bd68d094968fc53a914b7de9bb94a7781af2a21e5e6c658ac079f58e7936b4a38f3df5e7ce58be  unudhcpd.conf
+"

@@ -1,0 +1,110 @@
+# Reference: <https://postmarketos.org/vendorkernel>
+# Kernel config based on: the .config of the RAM-only "display A" build
+# (defconfig + omamobile.config + komodo-display.config), plus the options
+# pmbootstrap's kconfigcheck.toml asks for (see options=), resolved with
+# `make olddefconfig`. See docs/MILESTONE-2.md in this repository.
+# This package (patches and config included) is derived from the Linux
+# kernel: GPL-2.0-only, as license= says.
+maintainer="komodo port <komodo@example.invalid>"
+pkgname=linux-google-zumapro
+pkgver=7.3_rc6
+pkgrel=0
+pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
+arch="aarch64"
+_carch="arm64"
+_flavor="google-zumapro"
+# The repository was renamed on GitHub from linux-omarchy-mobile to
+# linux-omamobile; the old URL (used in source= below, as tested) redirects.
+url="https://github.com/derekross/linux-omamobile"
+license="GPL-2.0-only"
+# kconfigcheck: every category of the "community" alias except "hardening"
+# (CFI and shadow call stack change code generation; not tried on this
+# out-of-tree display/SoC code, and a CFI trap at boot spends a slot B try).
+options="!strip !check !tracedeps pmb:cross-native
+	pmb:kconfigcheck-accessibility pmb:kconfigcheck-community_various
+	pmb:kconfigcheck-containers pmb:kconfigcheck-debug
+	pmb:kconfigcheck-filesystems pmb:kconfigcheck-immutable
+	pmb:kconfigcheck-input pmb:kconfigcheck-iwd pmb:kconfigcheck-netboot
+	pmb:kconfigcheck-netmount pmb:kconfigcheck-nftables pmb:kconfigcheck-usb
+	pmb:kconfigcheck-usb_gadgets pmb:kconfigcheck-waydroid
+	pmb:kconfigcheck-wine pmb:kconfigcheck-wireguard pmb:kconfigcheck-zram"
+makedepends="
+	bash
+	bc
+	bison
+	clang
+	elfutils-dev
+	findutils
+	flex
+	linux-headers
+	lld
+	llvm
+	lz4
+	openssl-dev
+	pahole
+	perl
+	python3
+	zstd
+"
+
+# Source: derekross/linux-omamobile (formerly linux-omarchy-mobile), commit
+# ffd33b7 (head of PR #276, 2026-11-23). The GitHub tarball unpacks to
+# linux-omamobile-<commit> and was checked file by file to be identical to
+# the tree tested in Milestone 1. The three display patches ("display A")
+# go on top.
+_commit="ffd33b7ddc716eb3568fff9f8d337a4032d109eb"
+_config="config-$_flavor.$arch"
+source="
+	$pkgname-$_commit.tar.gz::https://github.com/derekross/linux-omarchy-mobile/archive/$_commit.tar.gz
+	$_config
+	0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
+	0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
+	0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
+"
+builddir="$srcdir/linux-omamobile-$_commit"
+
+prepare() {
+	default_prepare
+	cp "$srcdir/$_config" .config
+	# The config was resolved with Android clang r596125; Alpine's clang
+	# may flip toolchain-dependent symbols (CC_HAS_*, ...). Resolve them
+	# here, non-interactively, instead of syncconfig prompting mid-build.
+	make ARCH="$_carch" LLVM=1 olddefconfig
+}
+
+build() {
+	unset LDFLAGS
+	# Generic build identity: no real user/host in "Linux version ..."
+	make Image modules dtbs ARCH="$_carch" LLVM=1 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1))-postmarketOS" \
+		KBUILD_BUILD_USER=builder KBUILD_BUILD_HOST=komodo
+}
+
+package() {
+	# Image.lz4 made exactly as Milestone 1 did (lz4 legacy, level 9, no size
+	# trailer): the format the ABL is known to boot in boot.img.
+	mkdir -p "$pkgdir"/boot
+	lz4 -l -9 -c "$builddir/arch/$_carch/boot/Image" > "$pkgdir"/boot/vmlinuz
+
+	make modules_install dtbs_install \
+		ARCH="$_carch" \
+		LLVM=1 \
+		INSTALL_MOD_PATH="$pkgdir"/usr \
+		INSTALL_MOD_STRIP=1 \
+		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs
+	rm -f "$pkgdir"/usr/lib/modules/*/build "$pkgdir"/usr/lib/modules/*/source
+
+	install -Dm644 "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/$_flavor/kernel.release
+}
+
+# Tarball checksum computed with `pmbootstrap checksum linux-google-zumapro`
+# on 2026-11-25. The patches' Date: headers were normalised to UTC before
+# publishing (content unchanged), hence their checksums.
+sha512sums="
+c2e442abba3211fdd29c0a3b0851270c7b5fd2438f98226ad206c7d331c378d032ffb0187378605258754ba9af83775495439c1a3b13ee66f1701ec55f9c1d76  linux-google-zumapro-ffd33b7ddc716eb3568fff9f8d337a4032d109eb.tar.gz
+c679e856c170b8954695ad82359ba6210e75fe2a212f83a345a12c9de8b79e5d96f979d31cc259b90a08fd5969d676c6c0a9287a9cb186a6a7db8f50a7436573  config-google-zumapro.aarch64
+532c02802c282f9e5bde813055b9f33c234f52649eaec5fc172540e347494537e650ccb188281560de2857716dfcee20220cdbe37816fb737f1973651389924b  0001-kernel-configs-komodo-display.config-gs-decon-built-.patch
+370d0a844f296458fb5d0e788fc820f72ee4be25e5213c7184a62f466af8d30f41af6773cb0f6682f76288093e8508640e0550d069e4df684497ded61fd15aad  0002-arm64-dts-komodo-console-tty0-and-fbcon-font-in-chos.patch
+bfd90278b6d769c9be4ec9098b6cb5a8407cd500b983d9a81fabd40a274f5c8e57689cc10503a26b59cf47f96a911611b4c20b171ce822339b2e32f58f673e79  0003-arm64-dts-komodo-simple-framebuffer-on-ABL-s-buffer-.patch
+"

@@ -1,12 +1,16 @@
 # scripts/
 
-Build and flashing helpers for Milestone 1 (RAM-only Linux on slot B). The
-procedure that uses them is in [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md);
-read [../docs/SAFETY.md](../docs/SAFETY.md) first. **No warranty.**
+Build and flashing helpers for Milestone 1 (RAM-only Linux on slot B) and
+Milestone 2 (Nura on `userdata`). The procedures that use them are in
+[../docs/MILESTONE-1.md](../docs/MILESTONE-1.md) and
+[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md); read
+[../docs/SAFETY.md](../docs/SAFETY.md) first. **No warranty.**
 
-Herramientas de build y flasheo del hito 1 (Linux solo en RAM en el slot B).
-El procedimiento está en [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md); lee
-antes [../docs/SAFETY.md](../docs/SAFETY.md). **Sin garantía.**
+Herramientas de build y flasheo del hito 1 (Linux solo en RAM en el slot B) y
+del hito 2 (Nura en `userdata`). Los procedimientos están en
+[../docs/MILESTONE-1.md](../docs/MILESTONE-1.md) y
+[../docs/MILESTONE-2.md](../docs/MILESTONE-2.md); lee antes
+[../docs/SAFETY.md](../docs/SAFETY.md). **Sin garantía.**
 
 Rules / Reglas:
 
@@ -55,6 +59,8 @@ $KOMODO_WORK/
   build/initramfs/              initramfs work dir [KOMODO_INITRAMFS_WORK] (*)
   build/initramfs/initramfs.cpio.lz4  initramfs used by mkimages [KOMODO_INITRAMFS]
   build/images/                 the five images [KOMODO_IMG_DIR]           (*)
+  pmos/export/                  `pmbootstrap export` output [KOMODO_PMOS_EXPORT]
+  build/images-pmos/            Milestone 2 images + userdata sparse [KOMODO_PMOS_IMG_DIR] (*)
   stock/slot-b-stock/           stock images [KOMODO_STOCK_IMG_DIR]        (*)
   stock/image-komodo-cp4a.261105.040.a1.zip               [KOMODO_STOCK_ZIP]
 ```
@@ -83,16 +89,24 @@ escribe, se vacía o se lee para flashear: tiene que estar **dentro** de
 | `KOMODO_OVERLAY_SRC` | `mkimages.sh` | `device/komodo-board-overlay.dts` (in the repository / del repositorio) |
 | `KOMODO_VENDOR_CMDLINE` | `mkimages.sh` | bring-up cmdline in the script / la del script |
 | `KOMODO_IMG_DIR` (*) | `mkimages.sh` (output, emptied of `*.img` etc. / se vacía de `*.img` etc.), `verify-images.sh` (or its argument / o su argumento), `flash-slot-b.sh` | `build/images` |
+| `KOMODO_PMOS_EXPORT` | `mkimages-pmos.sh` (or its argument / o su argumento) | `pmos/export` |
+| `KOMODO_PMOS_IMG_DIR` (*) | `mkimages-pmos.sh` (output, emptied of `*.img` etc. / se vacía de `*.img` etc.) | `build/images-pmos` |
+| `KOMODO_DTC` | `mkimages-pmos.sh` | `$KOMODO_KOUT/scripts/dtc/dtc` if present, else `dtc` on the `PATH` / si existe; si no, `dtc` del `PATH` |
+| `KOMODO_EXTRA_CMDLINE` | `mkimages-pmos.sh` | empty; e.g. `pmos.debug-shell` / vacía; p. ej. `pmos.debug-shell` |
+| `KOMODO_INITRAMFS_FORMAT` | `mkimages-pmos.sh` | `lz4` (recompress to lz4 legacy / recomprime a lz4 legacy); `keep` untested / sin probar |
+| `KOMODO_ROOTFS_NAME` | `mkimages-pmos.sh` | `google-komodo.img` |
+| `KOMODO_USERDATA_BYTES` | `mkimages-pmos.sh` | `userdata` size of our 256 GB unit / tamaño de `userdata` de nuestra unidad de 256 GB |
 | `KOMODO_STOCK_IMG_DIR` (*) | `restore-slot-b-stock.sh` (extracts into it / extrae ahí) | `stock/slot-b-stock` |
 | `KOMODO_STOCK_ZIP` | `restore-slot-b-stock.sh` | `stock/image-komodo-cp4a.261105.040.a1.zip` |
 
-`verify-images.sh` creates its temporary directory inside `KOMODO_WORK` and
-removes it on exit. / `verify-images.sh` crea su directorio temporal dentro de
-`KOMODO_WORK` y lo borra al salir.
+`verify-images.sh` and `mkimages-pmos.sh` create their temporary directory
+inside `KOMODO_WORK` and remove it on exit. / `verify-images.sh` y
+`mkimages-pmos.sh` crean su directorio temporal dentro de `KOMODO_WORK` y lo
+borran al salir.
 
 > **Build-specific values / Valores específicos del build.** The constants
 > pinned in `flash-slot-b.sh` (`WANT_BL`, partition sizes, `WANT_ROLLBACK`),
-> `restore-slot-b-stock.sh`, `mkimages.sh` (`OS_VERSION`, `OS_PATCH_LEVEL`,
+> `restore-slot-b-stock.sh`, `mkimages.sh` and `mkimages-pmos.sh` (`OS_VERSION`, `OS_PATCH_LEVEL`,
 > `AVB_ROLLBACK_INDEX`, `AVB_SECURITY_PATCH`, `DTBO_ID`/`DTBO_REV`) and
 > `verify-images.sh` are **specific to build `CP4A.261105.040.A1`** (= values
 > from that build's stock vbmeta/footers). On any other build take them from
@@ -113,6 +127,7 @@ removes it on exit. / `verify-images.sh` crea su directorio temporal dentro de
 | 4 | `verify-images.sh` | Offline check of everything `mkimages.sh` produced (sizes, AVB footer, key, rollback index, props, headers, initramfs contents). / Verificación offline. | no |
 | 5 | `flash-slot-b.sh` | `--dry-run <SERIAL>` first: preflight (one device, `komodo`, unlocked, bootloader version, active slot A and successful, partition sizes, image hashes, and an AVB footer on every image with its partition name, `SHA256_RSA4096` and the expected rollback index, read with `avbtool info_image`; so `avbtool` must be on the `PATH`, passing `verify-images.sh` alone is not accepted). Without `--dry-run`, asks you to type `FLASH-B` and flashes **only** the five `_b` partitions, recomputing each image's SHA-256 right before its `flash` and aborting if it changed. Never changes the active slot, never reboots. / Flashea solo las cinco `_b`. | **yes** |
 | 6 | `restore-slot-b-stock.sh` | Same preflight; flashes the five `_b` boot partitions back to the stock images of `CP4A.261105.040.A1` (SHA-256 of the public factory image pinned, recomputed right before each `flash`). Asks for `RESTAURAR-B`. / Devuelve el slot B a stock. | **yes** |
+| 7 | `mkimages-pmos.sh` | **Milestone 2.** From `pmbootstrap export` (`vmlinuz`, `initramfs`, boot-deploy's `vendor_boot.img`, `google-komodo.img`): takes the Nura cmdline and DTB out of `vendor_boot.img`, checks it against the exported initramfs, the DTB `/soc_compatible` node and the initramfs contents (hook, UFS guard, `unudhcpd.conf`), recompresses the initramfs to lz4 legacy, and builds the five slot-B images with the same layout and AVB values as `mkimages.sh` (DTB and initramfs in `vendor_kernel_boot`). Then checks the root image (GPT with 4096-byte sectors, exactly `pmOS_boot` + `pmOS_root`, ext*, fits in `userdata`) and converts it to `google-komodo-sparse.img`, checking the round trip. Same tool pins as `mkimages.sh`. Never calls `fastboot`. Flashing is by hand, see [MILESTONE-2.md](../docs/MILESTONE-2.md). / Cinco imágenes del slot B y sparse de `userdata` a partir de `pmbootstrap export`. | no |
 
 Both flashing scripts tell a variable the bootloader does not have ("Variable
 not found", "unknown variable"…) apart from any other `fastboot` error, which
@@ -120,8 +135,12 @@ aborts. / Los dos scripts de flasheo distinguen una variable que el bootloader
 no tiene de cualquier otro error de `fastboot`, que aborta.
 
 `set_active`, `reboot` and the return to slot A are done **by hand**, as
-described in [MILESTONE-1.md](../docs/MILESTONE-1.md). / El cambio de slot,
-el reinicio y la vuelta al slot A se hacen **a mano**.
+described in [MILESTONE-1.md](../docs/MILESTONE-1.md). For Milestone 2, the
+five `_b` images and `userdata` were flashed by hand with `fastboot` (see
+[MILESTONE-2.md](../docs/MILESTONE-2.md)); `flash-slot-b.sh` was not used. /
+El cambio de slot, el reinicio y la vuelta al slot A se hacen **a mano**. En
+el hito 2 las cinco `_b` y `userdata` se flashearon a mano con `fastboot`;
+no se usó `flash-slot-b.sh`.
 
 `<SERIAL>` is what `fastboot devices` prints. Pass it on the command line; do
 not write it to files you might share. / `<SERIAL>` es lo que imprime
@@ -134,7 +153,10 @@ not write it to files you might share. / `<SERIAL>` es lo que imprime
 from your distribution), `mkbootimg`, `unpack_bootimg`, `mkdtboimg` and
 `avbtool` (e.g. Arch `android-tools` 37, whose copies matched the Omamobile
 pins on our host; `mkimages.sh` refuses any other version), and `fastboot` for
-steps 5–6.
+steps 5–6. `mkimages-pmos.sh` also needs `zstd`, `img2simg`, `simg2img`,
+`strings` (binutils) and a `dtc`; and Milestone 2 needs `pmbootstrap` (we used
+3.12.1). / `mkimages-pmos.sh` necesita además `zstd`, `img2simg`,
+`simg2img`, `strings` y un `dtc`; el hito 2, `pmbootstrap` (usamos 3.12.1).
 
 ## Downloads you need / Descargas necesarias
 
@@ -143,7 +165,7 @@ before use. / Descárgalas tú y comprueba cada hash antes de usarlas.
 
 | Input | Source | Pinned hash |
 |---|---|---|
-| Kernel tree | <https://github.com/derekross/linux-omarchy-mobile> PR #276, fork `oscarluke`, branch `omamobile-komodo-m1`, commit `ffd33b7ddc716eb3568fff9f8d337a4032d109eb` (export with `git archive`) | git commit id |
+| Kernel tree | <https://github.com/derekross/linux-omarchy-mobile> (now `linux-omamobile`; the old URL redirects) PR #276, fork `oscarluke`, branch `omamobile-komodo-m1`, commit `ffd33b7ddc716eb3568fff9f8d337a4032d109eb` (export with `git archive`) | git commit id |
 | Omamobile | <https://github.com/derekross/omamobile>, commit `15a7d20ce3fab68e8e4905590c6c2c2b5db15c8a` (`initramfs/init`, `kernel/configs/omamobile.config`, `tools/toolchain.lock`) | `initramfs/init` SHA-256 pinned in `mkinitramfs.sh` |
 | Android clang r596125 | <https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/29182889399818f97baa65ea238c80e8117981eb/clang-r596125.tar.gz> (gitiles builds the tarball on the fly, so the tarball hash is not stable: check the **extracted tree**) | tree digest `111d4532e29ceb47cd6392ded7319c24d8ae5dd510b9a0770fc7bcb5d27a7881` (`treedigest.py`, same as Omamobile `toolchain.lock`) |
 | Alpine minirootfs 3.24.2 aarch64 | <https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/aarch64/alpine-minirootfs-3.24.2-aarch64.tar.gz> | SHA-256 `9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773` |

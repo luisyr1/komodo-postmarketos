@@ -1,0 +1,9 @@
+# Pixel 9 Pro XL (komodo): every UFS LUN and partition read-only except
+# userdata (the postmarketOS image). Defence in depth against a stray write
+# to the bootloader, modem, calibration or Android partitions. The helper
+# only acts on devices below the UFS host 13200000.ufs (not USB sticks).
+# Also part of the initramfs (google-komodo-initfs.files), so it applies
+# before mount_subpartitions() runs losetup.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*", DEVPATH=="*/13200000.ufs/*", RUN+="/usr/libexec/google-komodo-ufs-ro %k"
+# Keep udisks/desktop tools from offering to mount or format them
+SUBSYSTEM=="block", KERNEL=="sd*", DEVPATH=="*/13200000.ufs/*", ENV{PARTNAME}!="userdata", ENV{UDISKS_IGNORE}="1"

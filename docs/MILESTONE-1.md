@@ -12,10 +12,12 @@ solo lectura y nada montado, y Android stock sigue en el slot A.
 
 *Later note: the black screen described here applies to the Milestone 1 tree.
 A later "display A" kernel variant shows a text console on screen
-(2026-11-25); its patches are not published here yet. See
+(2026-11-25); its patches are now published in the `linux-google-zumapro`
+package used by [MILESTONE-2.md](MILESTONE-2.md). See
 [JOURNAL.md](JOURNAL.md). / Nota posterior: la pantalla negra descrita aquí es
 la del árbol del hito 1; una variante posterior "display A" muestra consola de
-texto (2026-11-25); sus parches aún no están publicados aquí.*
+texto (2026-11-25); sus parches ya están publicados en el paquete
+`linux-google-zumapro` del [hito 2](MILESTONE-2.md).*
 
 [English](#english) · [Español](#español)
 

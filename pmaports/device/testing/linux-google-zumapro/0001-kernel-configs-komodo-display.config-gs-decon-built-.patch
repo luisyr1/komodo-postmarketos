@@ -1,0 +1,36 @@
+From e570a424027c9f058100e313e54764f7bbc91c06 Mon Sep 17 00:00:00 2001
+From: builder <builder@komodo.invalid>
+Date: Tue, 24 Nov 2026 18:00:00 +0000
+Subject: [PATCH 1/2] kernel/configs: komodo-display.config, gs-decon built in
+
+The ram-rescue initramfs has no modules, so DRM_GS_DECON (and the
+DRM_GS_DSIM_CMD it depends on) must be =y for DECON0 to be driven
+without loading anything. simpledrm, fbdev emulation, fbcon and the
+TER16x32 font are already =y in defconfig + omamobile.config.
+---
+ kernel/configs/komodo-display.config | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+ create mode 100644 kernel/configs/komodo-display.config
+
+diff --git a/kernel/configs/komodo-display.config b/kernel/configs/komodo-display.config
+new file mode 100644
+index 000000000..e5023d55e
+--- /dev/null
++++ b/kernel/configs/komodo-display.config
+@@ -0,0 +1,16 @@
++# Komodo (Pixel 9 Pro XL) display bring-up for the RAM rescue initramfs,
++# which carries no kernel modules: gs-decon has to be built in.
++#
++# DECON0 flip-only driver and its DSIM dependency (Kconfig: DRM_GS_DECON
++# depends on DRM_GS_DSIM_CMD). Komodo's DT has no DSIM port and dsi0 stays
++# disabled, so gs-dsim-cmd binds nothing and no DSI packet is sent.
++CONFIG_DRM_GS_DSIM_CMD=y
++CONFIG_DRM_GS_DECON=y
++# Already set by defconfig + omamobile.config; listed so the merge fails
++# loudly if a later fragment drops them.
++CONFIG_DRM_SIMPLEDRM=y
++CONFIG_DRM_FBDEV_EMULATION=y
++CONFIG_FB=y
++CONFIG_FRAMEBUFFER_CONSOLE=y
++CONFIG_VT_CONSOLE=y
++CONFIG_FONT_TER16x32=y

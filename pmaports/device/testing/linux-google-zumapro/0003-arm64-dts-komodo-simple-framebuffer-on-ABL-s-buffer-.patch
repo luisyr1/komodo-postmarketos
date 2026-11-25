@@ -1,0 +1,50 @@
+From af0ac2996a91c328d8ddbfc8edc59bcd6e31b9a1 Mon Sep 17 00:00:00 2001
+From: builder <builder@komodo.invalid>
+Date: Tue, 24 Nov 2026 18:02:00 +0000
+Subject: [PATCH] arm64: dts: komodo: simple-framebuffer on ABL's buffer,
+ gs-decon stage 1
+
+Variant A of the display bring-up. simpledrm scans the buffer ABL left
+DPP0 reading at 0xfac00000 (1344x2992 a8r8g8b8, stride 5376), and
+gs-decon runs only stage 1: it unmasks DECON0's hardware trigger and
+counts frame interrupts, without KMS, without touching DPP0, clocks,
+power domains, regulators or the panel. Same split as husky/akita
+(simple-framebuffer + a TRIG_CON write), here done by the driver.
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts | 23 ++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index ff4e56395..212ebfb73 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -106,7 +106,28 @@
+ 		 * /dev/console is whichever registered console matches first
+ 		 * (ttynull is not built).
+ 		 */
+-		bootargs = "console=tty0 fbcon=font:TER16x32 clk_ignore_unused pd_ignore_unused panic=10 mem_sleep_default=s2idle";
++		bootargs = "console=tty0 fbcon=font:TER16x32 gs_decon.stage=1 clk_ignore_unused pd_ignore_unused panic=10 mem_sleep_default=s2idle";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		ranges;
++
++		/*
++		 * ABL's buffer, still scanned out by DPP0 at handover
++		 * (RDMA_BASEADDR 0xfac00000, 1344x2992, PR #914 BRINGUP-M1
++		 * stage 0). Its size is exactly the reservation below, so the
++		 * stride is 1344 * 4. The panel is DSI command mode and ABL
++		 * leaves DECON0's trigger masked: new frames reach it only
++		 * once gs-decon stage 1 (gs_decon.stage=1 above) starts the
++		 * trigger. Stage 1 does not take the display from simpledrm.
++		 */
++		framebuffer0: framebuffer {
++			compatible = "simple-framebuffer";
++			memory-region = <&komodo_boot_fb>;
++			width = <1344>;
++			height = <2992>;
++			stride = <(1344 * 4)>;
++			format = "a8r8g8b8";
++		};
+ 	};
+ 
+ 	komodo_gpu_opp: opp-table-gpu {

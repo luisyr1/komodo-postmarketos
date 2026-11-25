@@ -209,11 +209,13 @@ de usuario y correos.
 The RAM-only procedure verified on our unit (Milestone 1) is in
 [MILESTONE-1.md](MILESTONE-1.md), with scripts in
 [../scripts/](../scripts/README.md). Installing Nura on `userdata`
-(Milestone 2) has **no** tested procedure yet. The update and unlock steps are
-in [UNLOCK.md](UNLOCK.md).
+(Milestone 2, verified on our unit on 2026-11-25; **flashing `userdata` wipes
+all Android data**) is in [MILESTONE-2.md](MILESTONE-2.md). The update and
+unlock steps are in [UNLOCK.md](UNLOCK.md).
 
 El procedimiento solo en RAM verificado en nuestra unidad (hito 1) está en
 [MILESTONE-1.md](MILESTONE-1.md), con los scripts en
-[../scripts/](../scripts/README.md). Instalar Nura en `userdata` (hito 2)
-**aún no** tiene procedimiento probado. La actualización y el desbloqueo están
-en [UNLOCK.md](UNLOCK.md).
+[../scripts/](../scripts/README.md). Instalar Nura en `userdata` (hito 2,
+verificado en nuestra unidad el 2026-11-25; **flashear `userdata` borra todos
+los datos de Android**) está en [MILESTONE-2.md](MILESTONE-2.md). La
+actualización y el desbloqueo están en [UNLOCK.md](UNLOCK.md).

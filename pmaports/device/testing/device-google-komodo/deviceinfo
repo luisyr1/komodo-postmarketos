@@ -1,0 +1,48 @@
+# Reference: <https://postmarketos.org/deviceinfo>
+# Please use double quotes only. You can source this file in shell
+# scripts.
+# Justification of every field: hito2/PLAN.md, section "deviceinfo".
+
+deviceinfo_format_version="0"
+deviceinfo_name="Google Pixel 9 Pro XL"
+deviceinfo_manufacturer="Google"
+deviceinfo_codename="google-komodo"
+deviceinfo_year="2024"
+deviceinfo_dtb="exynos/google/zumapro-komodo"
+deviceinfo_arch="aarch64"
+
+# Device related
+deviceinfo_chassis="handset"
+# simpledrm only (ABL framebuffer, variant A); no verified GPU/KMS stack
+deviceinfo_drm="false"
+deviceinfo_getty="ttyGS0;115200"
+
+# Bootloader related
+# "none" on purpose: `pmbootstrap flasher` would write boot/vendor_boot of
+# the ACTIVE slot (slot A = Android) with images the ABL cannot boot here.
+# Flashing is done by hand (hito2/PLAN.md) with hito2/mkimages-pmos.sh.
+deviceinfo_flash_method="none"
+# boot-deploy builds boot.img + vendor_boot.img (v4, 2048-byte pages, as
+# stock vendor_boot); mkimages-pmos.sh takes cmdline, DTB and initramfs
+# out of that vendor_boot.img and repacks the five slot B images.
+deviceinfo_generate_bootimg="true"
+deviceinfo_header_version="4"
+deviceinfo_flash_pagesize="2048"
+# Never let boot-deploy dd boot images on kernel upgrades (default, explicit)
+deviceinfo_flash_kernel_on_update="false"
+deviceinfo_flash_sparse="false"
+# UFS: 4096-byte logical sectors (sda: 62387200 4096-byte logical blocks)
+deviceinfo_rootfs_image_sector_size="4096"
+deviceinfo_partition_type="gpt"
+deviceinfo_root_filesystem="ext4"
+
+# USB
+# Linux Foundation multifunction composite gadget, as in hito 1
+deviceinfo_usb_idVendor="0x1D6B"
+deviceinfo_usb_idProduct="0x0104"
+deviceinfo_usb_serialnumber="pmos-komodo"
+deviceinfo_usb_network_function="ncm.usb0"
+deviceinfo_usb_network_udc="11210000.usb"
+# Fixed host-side MAC (locally administered) so the PC can tell this phone
+# from the other postmarketOS phone; the IPs are in /etc/unudhcpd.conf
+deviceinfo_usb_network_host_addr="02:6b:6f:6d:6f:01"

@@ -1,0 +1,35 @@
+From 82a10185eebfb307846e4371e29245ab5b0debb9 Mon Sep 17 00:00:00 2001
+From: builder <builder@komodo.invalid>
+Date: Tue, 24 Nov 2026 18:01:00 +0000
+Subject: [PATCH 2/2] arm64: dts: komodo: console=tty0 and fbcon font in
+ /chosen bootargs
+
+ABL strips console= from the vendor_boot command line but keeps the
+DTB's /chosen bootargs verbatim at the front (hito-1 /proc/cmdline).
+Put console=tty0 there so kernel messages can reach fbcon, with the
+TER16x32 font that husky uses for the same 1344x2992 geometry.
+---
+ arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 261ddf43e..ff4e56395 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -98,7 +98,15 @@
+ 	};
+ 
+ 	chosen {
+-		bootargs = "clk_ignore_unused pd_ignore_unused panic=10 mem_sleep_default=s2idle";
++		/*
++		 * ABL keeps these and appends its own after them, ending in
++		 * console=null; it drops console= from the vendor_boot command
++		 * line (hito 1). Both console= entries are then registered:
++		 * printk reaches tty0 (fbcon) once a framebuffer exists, and
++		 * /dev/console is whichever registered console matches first
++		 * (ttynull is not built).
++		 */
++		bootargs = "console=tty0 fbcon=font:TER16x32 clk_ignore_unused pd_ignore_unused panic=10 mem_sleep_default=s2idle";
+ 	};
+ 
+ 	komodo_gpu_opp: opp-table-gpu {

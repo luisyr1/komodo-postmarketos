@@ -1,12 +1,14 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
-> **Status: mainline-based Linux boots on our unit (RAM-only from slot B) and
-> shows a text console on the screen. Nura is not installed yet. Stock Android
-> 17 stays on slot A.**
+> **Status: Nura (edge, console UI) is installed on `userdata` and boots on our
+> unit from slot B to a `login:` prompt on the screen, with SSH over USB
+> (Milestone 2, 2026-11-25). No touch, battery or WiFi yet. Stock Android 17
+> stays on slot A, but its data was wiped.**
 >
-> **Estado: Linux (base mainline) arranca en nuestra unidad (solo en RAM desde
-> el slot B) y muestra una consola de texto en la pantalla. Nura aún no está
-> instalado. Android 17 stock sigue en el slot A.**
+> **Estado: Nura (edge, UI de consola) está instalado en `userdata` y arranca en
+> nuestra unidad desde el slot B hasta un `login:` en pantalla, con SSH por USB
+> (hito 2, 2026-11-25). Aún sin táctil, batería ni WiFi. Android 17 stock sigue
+> en el slot A, pero sus datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -30,24 +32,37 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 
 - Bootloader: **unlocked** on our unit (verified boot state orange).
 - Stock: Android 17 stable `CP4A.261105.040.A1` on **both** slots (same
-  bootloader on both), active slot A, automatic updates disabled. How:
-  [docs/UNLOCK.md](docs/UNLOCK.md).
-- Linux flashed: the five slot-B boot images of the "display A" kernel variant
-  (they replaced the Milestone 1 images; `vbmeta_b` stock); slot A untouched.
-- Boots: **yes, RAM-only** (Milestone 1 passed, 2026-11-24): kernel
-  `7.3.0-rc6-omamobile-push1` from slot B, USB gadget with serial console and
-  SSH, UFS detected and kept read-only, stable for more than 7 minutes.
-  Procedure: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
-- Display: **text console on the screen** (confirmed by eye on 2026-11-25).
-  The "display A" kernel variant builds `gs-decon` in and adds a
-  `simple-framebuffer` node pointing at the framebuffer the bootloader leaves
-  on; `simpledrm` drives it and `fbcon` draws the Linux console. No GPU or
-  acceleration, no real modesetting, no backlight control, no screen off/on.
-  The display patches are not published in this repository yet (they will be
-  later). Details: [docs/JOURNAL.md](docs/JOURNAL.md).
-- Backup of the device's partitions: done from that Linux, kept private.
-- Next: Milestone 2, Nura with pmbootstrap and root on `userdata`; on the
-  display side, a panel driver/KMS, backlight and GPU
+  bootloader on both), automatic updates disabled. How:
+  [docs/UNLOCK.md](docs/UNLOCK.md). Slot B's five boot partitions now carry
+  Nura's images (`vbmeta_b` stock), and slot B is the one we boot.
+- Milestone 1 (2026-11-24): mainline-based kernel booted RAM-only from slot
+  B, USB gadget with serial console and SSH, UFS read-only.
+  [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+- **Milestone 2 passed (2026-11-25): Nura on `userdata`.** Built with
+  pmbootstrap 3.12.1 (edge, console UI, systemd); kernel
+  `7.3.0-rc6-zumapro`; root filesystem written to `userdata` (ext4 image on a
+  loop device with 4096-byte sectors, grown to 221.6 GiB on first boot); the
+  five slot-B boot images built from the pmbootstrap output (`vbmeta_b`
+  stock). Nura reaches `login:` on the screen; over SSH (USB NCM,
+  `172.16.43.1`): system `running`, 0 failed units, 15.1 GiB RAM, 8 CPUs,
+  UFS read-only guard clean. Procedure:
+  [docs/MILESTONE-2.md](docs/MILESTONE-2.md).
+- Android data: **lost** when `userdata` was flashed (expected). Slot A,
+  bootloader, radio and `vbmeta` untouched.
+- Display: **text console on the screen** (`simpledrm` on the framebuffer the
+  bootloader leaves on, `fbcon`). No GPU or acceleration, no real
+  modesetting, no backlight control, no screen off/on. The display patches
+  are now published with the kernel package.
+- Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
+  (`device-google-komodo`, `linux-google-zumapro`) and
+  [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
+- Known problems: the slot-B retry counter is spent on every boot and nothing
+  marks the slot successful (after 3 boots the ABL falls back to slot A;
+  `fastboot set_active b` beforehand); no touch input (login only over SSH);
+  no battery/charging support; the power key is seen but does nothing.
+- Backup of the device's partitions: done from the Milestone 1 Linux, kept
+  private.
+- Next: slot-B retry counter, buttons, touchscreen, battery/charging, WiFi
   ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
@@ -62,18 +77,18 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 
 | Component | Our unit | Third-party reports |
 |---|---|---|
-| Boot | **works** (RAM-only, slot B) | reported (Omamobile kernel PR #276) |
-| UFS storage | **detected, read-only tested** | reported (PR #276) |
-| Root on userdata | untested | reported (PR #276) |
-| USB gadget (NCM/ACM/SSH) | **works** | reported (PR #276) |
-| Display | **partial**: text console (`simpledrm` on the bootloader framebuffer); no KMS, backlight or GPU | reported (PR #276) |
-| Buttons | Power+Vol− reaches fastboot; under Linux untested | reported (PR #276) |
-| Touchscreen | untested | described but disabled (PR #276) |
+| Boot | **works** (slot B, Nura from `userdata`; each boot spends a slot-B retry) | reported (Omamobile kernel PR #276) |
+| UFS storage | **works**: `userdata` read-write, every other partition kept read-only | reported (PR #276) |
+| Root on userdata | **works** (ext4 image on loop, 4096-byte sectors) | reported (PR #276) |
+| USB gadget (NCM/ACM/SSH) | **works** (SSH to Nura at `172.16.43.1`) | reported (PR #276) |
+| Display | **partial**: text console (`simpledrm` on the bootloader framebuffer), Nura `login:` on screen; no KMS, backlight or GPU | reported (PR #276) |
+| Buttons | **partial**: power key seen by logind, no action; Power+Vol− does not reach fastboot from Linux | reported (PR #276) |
+| Touchscreen | **no input** (cannot type at the login) | described but disabled (PR #276) |
 | GPU (Mali-G715) | untested | described but disabled (PR #276) |
-| USB Type-C / charging | untested | Type-C described but disabled (PR #276) |
+| USB Type-C / charging | charging **not supported** (no `power_supply`); Type-C untested | Type-C described but disabled (PR #276) |
 | WiFi | untested | described but disabled (PR #276) |
 | Bluetooth | untested | unknown |
-| Battery / fuel gauge | untested | unknown |
+| Battery / fuel gauge | **not supported** (no `/sys/class/power_supply`) | unknown |
 | Audio | untested | unknown |
 | Sensors | untested | unknown |
 | Modem / calls / SMS | untested | unknown |
@@ -105,6 +120,9 @@ with appropriate scepticism.
 - [Omamobile](https://github.com/derekross/omamobile) and its kernel fork
   [linux-omarchy-mobile](https://github.com/derekross/linux-omarchy-mobile)
   (mainline + Tensor support, Pixel 9a `tegu` work, `komodo` board in PR #276).
+  The kernel repository has since been renamed on GitHub to
+  [linux-omamobile](https://github.com/derekross/linux-omamobile); the old
+  links redirect.
 - The `komodo` bring-up work in Omamobile itself:
   [PR #914](https://github.com/derekross/omamobile/pull/914) and
   [PR #567](https://github.com/derekross/omamobile/pull/567) of
@@ -125,7 +143,7 @@ before every commit or push.
 
 ### License
 
-[MIT](LICENSE) for everything written for this project (scripts, packaging, docs). Any file derived from the Linux kernel (device trees, patches) keeps its upstream license (GPL-2.0), stated in its SPDX header. Firmware extracted from Google's factory image is **not** redistributed here.
+[MIT](LICENSE) for everything written for this project (scripts, packaging, docs). Any file derived from the Linux kernel (device trees, patches) keeps its upstream license (GPL-2.0), stated in its SPDX header; the kernel package [`pmaports/device/testing/linux-google-zumapro/`](pmaports/device/testing/linux-google-zumapro/) (its patches and kernel config included) is GPL-2.0-only, as its `APKBUILD` declares (`license=`), since patch and config files carry no SPDX header. Firmware extracted from Google's factory image is **not** redistributed here.
 
 ---
 
@@ -147,27 +165,40 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Bootloader: **desbloqueado** en nuestra unidad (estado de arranque
   verificado orange).
 - Stock: Android 17 estable `CP4A.261105.040.A1` en **ambos** slots (mismo
-  bootloader en los dos), slot activo A, actualizaciones automáticas
-  desactivadas. Cómo: [docs/UNLOCK.md](docs/UNLOCK.md).
-- Linux flasheado: las cinco imágenes de arranque del slot B de la variante de
-  kernel "display A" (sustituyeron a las del hito 1; `vbmeta_b` stock); el
-  slot A, intacto.
-- Arranca: **sí, solo en RAM** (hito 1 superado, 2026-11-24): kernel
-  `7.3.0-rc6-omamobile-push1` desde el slot B, gadget USB con consola serie y
-  SSH, UFS detectado y en solo lectura, estable más de 7 minutos.
-  Procedimiento: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
-- Pantalla: **consola de texto en pantalla** (confirmado a ojo el
-  2026-11-25). La variante "display A" integra `gs-decon` en el kernel y añade
-  un nodo `simple-framebuffer` que apunta al framebuffer que deja encendido el
-  bootloader; `simpledrm` lo gestiona y `fbcon` pinta la consola de Linux. Sin
-  GPU ni aceleración, sin modesetting real, sin control de brillo
-  (backlight), sin apagar/encender la pantalla. Los parches de pantalla aún no
-  están publicados en este repositorio (se publicarán más adelante). Detalle:
-  [docs/JOURNAL.md](docs/JOURNAL.md).
-- Copia de seguridad de las particiones: hecha desde ese Linux, guardada en
-  privado.
-- Siguiente: hito 2, Nura con pmbootstrap y raíz en `userdata`; en pantalla,
-  driver de panel/KMS, backlight y GPU ([docs/ROADMAP.md](docs/ROADMAP.md)).
+  bootloader en los dos), actualizaciones automáticas desactivadas. Cómo:
+  [docs/UNLOCK.md](docs/UNLOCK.md). Las cinco particiones de arranque del
+  slot B llevan ahora las imágenes de Nura (`vbmeta_b` stock) y es el slot que
+  arrancamos.
+- Hito 1 (2026-11-24): kernel de base mainline arrancado solo en RAM desde
+  el slot B, gadget USB con consola serie y SSH, UFS en solo lectura.
+  [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+- **Hito 2 superado (2026-11-25): Nura en `userdata`.** Construido con
+  pmbootstrap 3.12.1 (edge, UI de consola, systemd); kernel
+  `7.3.0-rc6-zumapro`; raíz escrita en `userdata` (imagen ext4 en un loop
+  con sectores de 4096, ampliada a 221,6 GiB en el primer arranque); las
+  cinco imágenes de arranque del slot B salen de lo que genera pmbootstrap
+  (`vbmeta_b` stock). Nura llega a `login:` en pantalla; por SSH (USB NCM,
+  `172.16.43.1`): sistema `running`, 0 unidades fallidas, 15,1 GiB de RAM,
+  8 CPU, guardia de solo lectura del UFS sin avisos. Procedimiento:
+  [docs/MILESTONE-2.md](docs/MILESTONE-2.md).
+- Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
+  bootloader, radio y `vbmeta`, sin tocar.
+- Pantalla: **consola de texto** (`simpledrm` sobre el framebuffer que deja
+  encendido el bootloader, `fbcon`). Sin GPU ni aceleración, sin modesetting
+  real, sin control de brillo, sin apagar/encender. Los parches de pantalla ya
+  están publicados con el paquete del kernel.
+- Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
+  (`device-google-komodo`, `linux-google-zumapro`) y
+  [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
+- Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
+  el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
+  hacer antes `fastboot set_active b`); sin táctil (login solo por SSH); sin
+  soporte de batería/carga; la tecla de encendido se detecta pero no hace
+  nada.
+- Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
+  guardada en privado.
+- Siguiente: contador del slot B, botones, táctil, batería/carga, WiFi
+  ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -176,13 +207,15 @@ el bootloader identifica el panel como `google-km4`.
 
 ### Estado del hardware
 
-La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (solo
-RAM, slot B); UFS **detectado, probado solo en lectura**; gadget USB
-(NCM/ACM/SSH) **funciona**; pantalla **parcial**: consola de texto
-(`simpledrm` sobre el framebuffer del bootloader), sin KMS, brillo ni GPU;
-táctil, **sin probar**; botones: solo
-verificado que Encendido + Volumen − lleva a fastboot (bajo Linux, sin
-probar); el resto, **sin probar**. Lo marcado como "reported" lo reporta un
+La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (slot B,
+Nura desde `userdata`; cada arranque gasta un intento del slot B); raíz en
+`userdata` **funciona**; UFS: `userdata` en lectura/escritura y el resto en
+solo lectura; gadget USB (NCM/ACM/SSH) **funciona**; pantalla **parcial**:
+consola de texto con el `login:` de Nura, sin KMS, brillo ni GPU; táctil **sin
+entrada** (no se puede escribir en el login); botones **parcial**: logind ve
+la tecla de encendido pero no hace nada, y desde Linux Encendido + Volumen −
+no lleva a fastboot; batería y carga **sin soporte** (no hay
+`/sys/class/power_supply`); el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido
 salvo donde se indica. Matriz completa en [docs/STATUS.md](docs/STATUS.md).
 
@@ -207,7 +240,8 @@ tratar todo el contenido con el escepticismo apropiado.
 
 ### Créditos
 
-Omamobile y su fork de kernel linux-omarchy-mobile (PR #276, placa
+Omamobile y su fork de kernel linux-omarchy-mobile, renombrado después en
+GitHub a linux-omamobile (los enlaces antiguos redirigen) (PR #276, placa
 `komodo`); el trabajo de bring-up de `komodo` en el propio Omamobile (PR #914 y
 #567 de `derekross/omamobile`); Noxyntious/linux (rama `pixel9a`); y la
 comunidad de Nura (postmarketOS). Enlaces en la sección inglesa.
@@ -222,4 +256,4 @@ commit o push, repasa la lista de privacidad de
 
 ### Licencia
 
-[MIT](LICENSE) para todo lo escrito para este proyecto (scripts, empaquetado, documentación). Cualquier fichero derivado del kernel de Linux (device trees, parches) conserva su licencia original (GPL-2.0), indicada en su cabecera SPDX. El firmware extraído de la imagen de fábrica de Google **no** se redistribuye aquí.
+[MIT](LICENSE) para todo lo escrito para este proyecto (scripts, empaquetado, documentación). Cualquier fichero derivado del kernel de Linux (device trees, parches) conserva su licencia original (GPL-2.0), indicada en su cabecera SPDX; el paquete del kernel [`pmaports/device/testing/linux-google-zumapro/`](pmaports/device/testing/linux-google-zumapro/) (parches y config incluidos) es GPL-2.0-only, como declara su `APKBUILD` (`license=`), porque los ficheros de parche y de config no llevan cabecera SPDX. El firmware extraído de la imagen de fábrica de Google **no** se redistribuye aquí.

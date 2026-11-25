@@ -1,0 +1,132 @@
+#!/bin/sh
+# google-komodo-ufs-ro: keep the UFS of the Pixel 9 Pro XL (komodo)
+# read-only except the userdata partition, where postmarketOS lives.
+#
+#   google-komodo-ufs-ro <kname>   one block device (udev: RUN+= ... %k)
+#   google-komodo-ufs-ro --all     every UFS device now present (initramfs hook)
+#   google-komodo-ufs-ro --check   print what is writable and should not be;
+#                                  exit 1 if anything is
+#
+# Only devices below the UFS host controller 13200000.ufs are touched
+# (androidboot.bootdevice), so USB storage keeps working. Partitions are
+# matched by GPT name (PARTNAME in the kernel uevent), never by number.
+#
+# The whole LUN that holds userdata (sda) stays writable: on Linux a
+# read-only whole disk makes all of its partitions read-only too, userdata
+# included. Its partitions are guarded one by one instead; raw writes to
+# /dev/sda itself are the remaining gap (see hito2/PLAN.md, risks).
+#
+# Nothing here writes to any partition: BLKROSET only changes the kernel's
+# in-memory flag, which is lost on reboot. busybox (initramfs) and
+# util-linux (rootfs) both provide `blockdev --setro`.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+UFS_HOST=13200000.ufs
+ALLOW="userdata"
+
+log() { echo "google-komodo-ufs-ro: $*" > /dev/kmsg 2>/dev/null || :; }
+
+is_ufs() {
+	case "$(readlink -f "/sys/class/block/$1")" in
+		*/"$UFS_HOST"/*) return 0 ;;
+	esac
+	return 1
+}
+
+partname() { sed -n 's/^PARTNAME=//p' "/sys/class/block/$1/uevent" 2>/dev/null; }
+
+allowed() {
+	[ -n "$1" ] || return 1
+	case " $ALLOW " in
+		*" $1 "*) return 0 ;;
+	esac
+	return 1
+}
+
+is_part() { [ -e "/sys/class/block/$1/partition" ]; }
+
+# Whole disk $1 holds an allowlisted partition
+holds_allowed() {
+	local p
+	for p in /sys/class/block/"$1"/"$1"*; do
+		[ -e "$p/partition" ] || continue
+		allowed "$(partname "${p##*/}")" && return 0
+	done
+	return 1
+}
+
+# Should $1 stay writable?
+exempt() {
+	if is_part "$1"; then
+		allowed "$(partname "$1")"
+	else
+		holds_allowed "$1"
+	fi
+}
+
+describe() {
+	local n
+	if is_part "$1"; then
+		n=$(partname "$1")
+		echo "$1${n:+ ($n)}"
+	else
+		echo "$1 (whole LUN)"
+	fi
+}
+
+is_ro() { [ "$(cat "/sys/class/block/$1/ro" 2>/dev/null)" = 1 ]; }
+
+setro() {
+	blockdev --setro "/dev/$1" 2>/dev/null ||
+		busybox blockdev --setro "/dev/$1" 2>/dev/null
+	is_ro "$1"
+}
+
+guard() {
+	[ -e "/sys/class/block/$1" ] || return 0
+	is_ufs "$1" || return 0
+	exempt "$1" && return 0
+	is_ro "$1" && return 0
+	if setro "$1"; then
+		log "$(describe "$1") set read-only"
+	else
+		log "FAILED to set $(describe "$1") read-only"
+		echo "google-komodo-ufs-ro: WARNING: $(describe "$1") is NOT read-only" \
+			> /dev/tty0 2>/dev/null
+		return 1
+	fi
+}
+
+ufs_devices() {
+	local s
+	for s in /sys/class/block/sd*; do
+		[ -e "$s" ] || continue
+		is_ufs "${s##*/}" && echo "${s##*/}"
+	done
+}
+
+case "$1" in
+	--all)
+		rc=0
+		for k in $(ufs_devices); do
+			guard "$k" || rc=1
+		done
+		exit $rc
+		;;
+	--check)
+		bad=0
+		for k in $(ufs_devices); do
+			exempt "$k" && continue
+			is_ro "$k" && continue
+			describe "$k"
+			bad=1
+		done
+		exit $bad
+		;;
+	sd*)
+		guard "$1"
+		;;
+	*)
+		echo "usage: $0 <kname> | --all | --check" >&2
+		exit 2
+		;;
+esac
