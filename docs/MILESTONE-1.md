@@ -10,6 +10,13 @@ Descripción reproducible y a alto nivel de lo que hicimos: Linux (base
 mainline) arranca desde el slot B solo en RAM, con todas las particiones UFS en
 solo lectura y nada montado, y Android stock sigue en el slot A.
 
+*Later note: the black screen described here applies to the Milestone 1 tree.
+A later "display A" kernel variant shows a text console on screen
+(2026-11-25); its patches are not published here yet. See
+[JOURNAL.md](JOURNAL.md). / Nota posterior: la pantalla negra descrita aquí es
+la del árbol del hito 1; una variante posterior "display A" muestra consola de
+texto (2026-11-25); sus parches aún no están publicados aquí.*
+
 [English](#english) · [Español](#español)
 
 ---

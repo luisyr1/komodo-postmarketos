@@ -61,6 +61,9 @@ Success criteria / Criterio de éxito (all required / todos obligatorios):
 
 Not achieved in Milestone 1: any display output (black screen). / No logrado
 en el hito 1: salida de pantalla (negra).
+*Later note: a text console on screen was reached afterwards (2026-11-25),
+see Phase 2. / Nota posterior: después se logró consola de texto en pantalla
+(2026-11-25), ver fase 2.*
 
 ## Phase 2 — Milestone 2: Nura on userdata / Hito 2: Nura en userdata
 
@@ -68,9 +71,16 @@ en el hito 1: salida de pantalla (negra).
 
 - [ ] Package `device-google-komodo` and the kernel for pmbootstrap (`device/`).
 - [ ] Nura built with pmbootstrap, root filesystem on `userdata`.
-- [ ] Enable the display: our Milestone 1 tree has no `simple-framebuffer`
-  (only reserved `framebuffer@fac00000`); panel named `google-km4` by the
-  bootloader. / Habilitar la pantalla.
+- [x] Display, text console: **done on 2026-11-25** (RAM-only, slot B) with
+  the "display A" kernel variant: `gs-decon` built in, `simple-framebuffer`
+  on the bootloader framebuffer at `0xfac00000`, `gs_decon.stage=1`;
+  `simpledrm` + `fbcon`, confirmed by eye. Patches not published here yet. /
+  Pantalla, consola de texto: **hecho el 2026-11-25**; parches aún sin
+  publicar aquí. See / Ver [JOURNAL.md](JOURNAL.md).
+- [ ] Display, the rest: panel driver for `google-km4` and real KMS
+  modesetting (variant B, `gs_decon.stage=2 gs_decon.fbdev=1`, built but
+  untested), backlight, screen off/on. / Pantalla, lo que falta: driver de
+  panel/KMS, backlight, apagar/encender. GPU: Phase 3. / GPU: fase 3.
 - [ ] Confirm buttons from the installed system.
 - [ ] Measure how much a Linux panic consumes of the slot-B retry counter. /
   Medir cuánto consume un pánico de Linux del contador de intentos.

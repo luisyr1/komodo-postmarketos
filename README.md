@@ -1,11 +1,12 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
-> **Status: mainline-based Linux boots on our unit (RAM-only from slot B, no
-> display). Nura is not installed yet. Stock Android 17 stays on slot A.**
+> **Status: mainline-based Linux boots on our unit (RAM-only from slot B) and
+> shows a text console on the screen. Nura is not installed yet. Stock Android
+> 17 stays on slot A.**
 >
 > **Estado: Linux (base mainline) arranca en nuestra unidad (solo en RAM desde
-> el slot B, sin pantalla). Nura aún no está instalado. Android 17 stock sigue
-> en el slot A.**
+> el slot B) y muestra una consola de texto en la pantalla. Nura aún no está
+> instalado. Android 17 stock sigue en el slot A.**
 
 [English](#english) · [Español](#español)
 
@@ -31,15 +32,23 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 - Stock: Android 17 stable `CP4A.261105.040.A1` on **both** slots (same
   bootloader on both), active slot A, automatic updates disabled. How:
   [docs/UNLOCK.md](docs/UNLOCK.md).
-- Linux flashed: the five slot-B boot images of Milestone 1 (`vbmeta_b`
-  stock); slot A untouched.
+- Linux flashed: the five slot-B boot images of the "display A" kernel variant
+  (they replaced the Milestone 1 images; `vbmeta_b` stock); slot A untouched.
 - Boots: **yes, RAM-only** (Milestone 1 passed, 2026-11-24): kernel
   `7.3.0-rc6-omamobile-push1` from slot B, USB gadget with serial console and
   SSH, UFS detected and kept read-only, stable for more than 7 minutes.
-  **Black screen.** Procedure: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+  Procedure: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+- Display: **text console on the screen** (confirmed by eye on 2026-11-25).
+  The "display A" kernel variant builds `gs-decon` in and adds a
+  `simple-framebuffer` node pointing at the framebuffer the bootloader leaves
+  on; `simpledrm` drives it and `fbcon` draws the Linux console. No GPU or
+  acceleration, no real modesetting, no backlight control, no screen off/on.
+  The display patches are not published in this repository yet (they will be
+  later). Details: [docs/JOURNAL.md](docs/JOURNAL.md).
 - Backup of the device's partitions: done from that Linux, kept private.
-- Next: Milestone 2, Nura with pmbootstrap and root on `userdata`, and getting
-  the display working ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Next: Milestone 2, Nura with pmbootstrap and root on `userdata`; on the
+  display side, a panel driver/KMS, backlight and GPU
+  ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
 an earlier stock build); a third-party bring-up names it `google,gs-km4`. On
@@ -57,7 +66,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 | UFS storage | **detected, read-only tested** | reported (PR #276) |
 | Root on userdata | untested | reported (PR #276) |
 | USB gadget (NCM/ACM/SSH) | **works** | reported (PR #276) |
-| Display | **no output** (black screen) | reported (PR #276) |
+| Display | **partial**: text console (`simpledrm` on the bootloader framebuffer); no KMS, backlight or GPU | reported (PR #276) |
 | Buttons | Power+Vol− reaches fastboot; under Linux untested | reported (PR #276) |
 | Touchscreen | untested | described but disabled (PR #276) |
 | GPU (Mali-G715) | untested | described but disabled (PR #276) |
@@ -140,16 +149,25 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Stock: Android 17 estable `CP4A.261105.040.A1` en **ambos** slots (mismo
   bootloader en los dos), slot activo A, actualizaciones automáticas
   desactivadas. Cómo: [docs/UNLOCK.md](docs/UNLOCK.md).
-- Linux flasheado: las cinco imágenes de arranque del slot B del hito 1
-  (`vbmeta_b` stock); el slot A, intacto.
+- Linux flasheado: las cinco imágenes de arranque del slot B de la variante de
+  kernel "display A" (sustituyeron a las del hito 1; `vbmeta_b` stock); el
+  slot A, intacto.
 - Arranca: **sí, solo en RAM** (hito 1 superado, 2026-11-24): kernel
   `7.3.0-rc6-omamobile-push1` desde el slot B, gadget USB con consola serie y
-  SSH, UFS detectado y en solo lectura, estable más de 7 minutos. **Pantalla
-  negra.** Procedimiento: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+  SSH, UFS detectado y en solo lectura, estable más de 7 minutos.
+  Procedimiento: [docs/MILESTONE-1.md](docs/MILESTONE-1.md).
+- Pantalla: **consola de texto en pantalla** (confirmado a ojo el
+  2026-11-25). La variante "display A" integra `gs-decon` en el kernel y añade
+  un nodo `simple-framebuffer` que apunta al framebuffer que deja encendido el
+  bootloader; `simpledrm` lo gestiona y `fbcon` pinta la consola de Linux. Sin
+  GPU ni aceleración, sin modesetting real, sin control de brillo
+  (backlight), sin apagar/encender la pantalla. Los parches de pantalla aún no
+  están publicados en este repositorio (se publicarán más adelante). Detalle:
+  [docs/JOURNAL.md](docs/JOURNAL.md).
 - Copia de seguridad de las particiones: hecha desde ese Linux, guardada en
   privado.
-- Siguiente: hito 2, Nura con pmbootstrap y raíz en `userdata`, y habilitar la
-  pantalla ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Siguiente: hito 2, Nura con pmbootstrap y raíz en `userdata`; en pantalla,
+  driver de panel/KMS, backlight y GPU ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -160,7 +178,9 @@ el bootloader identifica el panel como `google-km4`.
 
 La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (solo
 RAM, slot B); UFS **detectado, probado solo en lectura**; gadget USB
-(NCM/ACM/SSH) **funciona**; pantalla **sin salida** (negra); botones: solo
+(NCM/ACM/SSH) **funciona**; pantalla **parcial**: consola de texto
+(`simpledrm` sobre el framebuffer del bootloader), sin KMS, brillo ni GPU;
+táctil, **sin probar**; botones: solo
 verificado que Encendido + Volumen − lleva a fastboot (bajo Linux, sin
 probar); el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido

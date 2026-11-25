@@ -45,7 +45,7 @@ As of 2026-11-24. / A fecha de 2026-11-24.
 | Bootloader (both slots) | `ripcurrentpro-17.0-16433847` |
 | Baseband | `g5400c-260818-261007-B-16536938` |
 | Automatic system updates | disabled |
-| Linux flashed | Milestone 1 images on the five slot-B boot partitions (`vbmeta_b` stock); restoring them to stock not recorded yet |
+| Linux flashed | "display A" kernel variant images on the five slot-B boot partitions since 2026-11-24 (re-flashed 2026-11-25), replacing the Milestone 1 ones (`vbmeta_b` stock); restoring them to stock not recorded yet |
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -107,6 +107,13 @@ Kernel `7.3.0-rc6-omamobile-push1`, RAM-only. / Solo en RAM.
 | Watchdogs | two s3c2410, "watchdog inactive, reset disabled" |
 | Framebuffer | none: no `simple-framebuffer` in the DT, only reserved `framebuffer@fac00000`; screen black |
 | USB gadget | `1d6b:0104`, NCM + ACM |
+
+Later, with the "display A" kernel variant (2026-11-24/25): `simple-framebuffer`
+under `/chosen` on the bootloader framebuffer (`0xfac00000`, 1344x2992, stride
+5376, `a8r8g8b8`), `/proc/fb` = `0 simpledrmdrmfb`, `fbcon` 84x93 characters,
+text console visible on screen (confirmed by eye). See
+[JOURNAL.md](JOURNAL.md). / Después, con la variante "display A": consola de
+texto visible en pantalla (confirmado a ojo).
 
 `dtbo` (Android 17): 60 entries. Our unit uses entry 34 (`dtbo_idx=34`): board
 id `0x00060806`, rev `0x00010000`.

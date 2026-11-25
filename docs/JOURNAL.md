@@ -259,3 +259,82 @@ solo al slot A tras agotar los intentos de B; Android arrancó con sus datos
 intactos. Incidencia: choque de subred `172.16.42.0/24` con otros teléfonos
 postmarketOS en el mismo PC, resuelto con una segunda IP en el `usb0` del
 teléfono.
+
+---
+
+## 2026-11-24 — Display variant A, first test (no visual confirmation) / Variante de pantalla A, primera prueba (sin confirmación visual)
+
+Kernel variant "display A", tested RAM-only from slot B. Changes compared with
+Milestone 1:
+
+- `gs-decon` driver built into the kernel (`=y`) instead of as a module.
+- A `simple-framebuffer` node under `/chosen` in the device tree, pointing at
+  the framebuffer the bootloader leaves on: address `0xfac00000`, 1344x2992,
+  stride 5376, format `a8r8g8b8`.
+- Extra cmdline parameters: `gs_decon.stage=1`, `fbcon=font:TER16x32`,
+  `omamobile.debug`.
+
+Why stage 1: the panel is a command-mode DSI panel, and the bootloader leaves
+the frame trigger masked, so nothing new reaches the panel. Stage 1 of
+`gs-decon` unmasks it and enables the frame start/done interrupts.
+
+Result that day, read over SSH:
+
+- `/proc/fb`: `0 simpledrmdrmfb`.
+- `fbcon` at 84x93 characters.
+- Frames at ~60 Hz.
+- The framebuffer contents, read back over SSH, contained the console.
+- **No visual confirmation:** nobody was in front of the phone.
+
+Also built but **not tested**: variant B (`gs_decon.stage=2 gs_decon.fbdev=1`,
+KMS flip-only, without `simple-framebuffer`).
+
+Resumen: variante de kernel "display A" probada solo en RAM desde el slot B:
+`gs-decon` integrado (`=y`), nodo `simple-framebuffer` en `/chosen` sobre el
+framebuffer que deja el bootloader (`0xfac00000`, 1344x2992, stride 5376,
+`a8r8g8b8`) y `gs_decon.stage=1`, `fbcon=font:TER16x32`, `omamobile.debug` en
+la cmdline. El panel es DSI en modo comando y el bootloader deja el trigger de
+frame enmascarado; el stage 1 lo desenmascara y activa las interrupciones de
+frame start/done. Por SSH: `/proc/fb` = `0 simpledrmdrmfb`, fbcon de 84x93
+caracteres, frames a ~60 Hz y la consola presente en el contenido del
+framebuffer. Sin confirmación visual (nadie delante del teléfono). La variante
+B (`gs_decon.stage=2 gs_decon.fbdev=1`, KMS solo con flip, sin
+`simple-framebuffer`) está construida pero sin probar.
+
+---
+
+## 2026-11-25 — Display confirmed: text console on screen / Pantalla confirmada: consola de texto
+
+- The same set of "display A" images was flashed again on slot B and booted;
+  the USB gadget appeared after ~26 s.
+- A test message was written to `/dev/tty0`.
+- The owner confirmed **by eye** that the screen shows the Linux console.
+
+Display status on our unit: **works as a text console** (`simpledrm` on the
+bootloader's framebuffer). Limitations:
+
+- No GPU and no acceleration.
+- No real modesetting: there is no `km4` panel driver in the tree.
+- No backlight device: brightness is whatever the bootloader left.
+- No screen off/on.
+- Touchscreen still untested.
+
+Device state after this entry: slot B carries the five "display A" images (no
+longer the Milestone 1 ones); `vbmeta_b` stock; slot A untouched with Android
+17 `CP4A.261105.040.A1`. Still RAM-only; Nura not installed.
+
+The display patches are not published in this repository yet; they will be
+published later.
+
+Resumen: se reflashearon en el slot B las mismas imágenes "display A", el
+teléfono arrancó (gadget USB visible a los ~26 s), se escribió un mensaje de
+prueba en `/dev/tty0` y el dueño confirmó **a ojo** que la pantalla muestra la
+consola de Linux. Pantalla: **funciona como consola de texto** (`simpledrm`
+sobre el framebuffer del bootloader). Limitaciones: sin GPU ni aceleración, sin
+modesetting real (no hay driver del panel `km4` en el árbol), sin dispositivo
+de backlight (el brillo es el que deja el bootloader), sin apagar/encender la
+pantalla; táctil sin probar. El slot B lleva ahora las cinco imágenes de
+"display A" en vez de las del hito 1; `vbmeta_b` stock; slot A intacto con
+Android 17 `CP4A.261105.040.A1`. Sigue siendo solo RAM; Nura no instalado. Los
+parches de pantalla aún no están publicados en el repo; se publicarán más
+adelante.
