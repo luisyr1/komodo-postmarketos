@@ -1,6 +1,6 @@
 # Hardware status / Estado del hardware
 
-Last updated / Última actualización: 2026-11-25
+Last updated / Última actualización: 2026-11-26
 
 ## Device state / Estado del dispositivo
 
@@ -29,8 +29,8 @@ Last updated / Última actualización: 2026-11-25
   Mali-G715 through Panthor + Mesa 26.3.1, fuel gauge and charger visible,
   `reboot bootloader` reaches fastboot. Graphical login by touch; zero
   failed units after a clean reboot. Still no WiFi/BT, audio, modem,
-  cameras or managed USB-C; slot B retry counter unresolved.
-  [MILESTONE-3.md](MILESTONE-3.md).
+  cameras or managed USB-C; slot B retry counter unresolved (fixed on
+  2026-11-26, see below). [MILESTONE-3.md](MILESTONE-3.md).
 - **Milestone 4: WiFi works** (2026-11-25): kernel `linux-google-zumapro`
   `pkgrel=3` (patches 0012, `pcie_1` in the DTS, and 0013, the BCM4390 in
   `brcmfmac`), installed with `apk add` on the phone and only `boot_b`,
@@ -63,11 +63,20 @@ Last updated / Última actualización: 2026-11-25
   **bottom speaker** and was heard, and **microphone 0** picked it up.
   **The amplifiers run without the protection firmware and without the
   factory calibration: raising the volume can damage a speaker
-  irreversibly.** The recipe is at `pkgrel=7` (adds 0022–0023, tested by
-  loading two modules by hand; the package is not built or booted yet).
+  irreversibly.** Kernel `pkgrel=7` (adds 0022–0023) was built, installed
+  and booted on 2026-11-26; a default `aplay` now plays to the end on EP6.
   PipeWire ignores the card on purpose, so the desktop has no sound; top
   speaker/earpiece, stereo, usable volume, microphones 1–2, Bluetooth audio
   and calls untried. [MILESTONE-6.md](MILESTONE-6.md).
+- **Slot B retry counter fixed on our unit** (2026-11-26): slot B is marked
+  successful in `devinfo` (layout 3.19, one byte at `0x35`: `14 -> 16`,
+  written and verified with `komodo-boot-success --write`). In three
+  Linux → fastboot rounds without `set_active`, `slot-successful:b` stayed
+  `yes` and `slot-retry-count:b` stayed at 2: the counter no longer drops.
+  The ABL no longer falls back to slot A by itself (deduced: no failed
+  boot has been tried with B marked). Device package `pkgrel=4`, which
+  builds `komodo-bootctl`, was built with pmbootstrap, installed and
+  checked the same day. [SLOT-B.md](SLOT-B.md), [SAFETY.md](SAFETY.md).
 
 - Bootloader: **desbloqueado** (`verifiedbootstate` orange), slot activo B (Nura).
 - Ambos slots: Android 17 stock, `CP4A.261105.040.A1` (parche 2026-11-05),
@@ -94,7 +103,8 @@ Last updated / Última actualización: 2026-11-25
   Mali-G715 con Panthor + Mesa 26.3.1, fuel gauge y cargador visibles,
   `reboot bootloader` llega a fastboot. Login gráfico tocando; cero
   unidades fallidas tras un reinicio limpio. Sigue sin WiFi/BT, audio,
-  módem, cámaras ni USB-C gestionado; contador del slot B sin resolver.
+  módem, cámaras ni USB-C gestionado; contador del slot B sin resolver
+  (resuelto el 2026-11-26, ver abajo).
 - **Hito 4: el WiFi funciona** (2026-11-25): kernel `linux-google-zumapro`
   `pkgrel=3` (parches 0012, `pcie_1` en el DTS, y 0013, el BCM4390 en
   `brcmfmac`), instalado con `apk add` en el teléfono y reflasheando solo
@@ -127,11 +137,20 @@ Last updated / Última actualización: 2026-11-25
   ganancia analógica mínima sonó por el **altavoz inferior** y se oyó, y el
   **micrófono 0** lo captó. **Los amplificadores van sin firmware de
   protección ni calibración de fábrica: subir el volumen puede dañar un
-  altavoz de forma irreversible.** La receta está en `pkgrel=7` (añade
-  0022–0023, probados cargando dos módulos a mano; el paquete aún no se ha
-  compilado ni arrancado). PipeWire ignora la tarjeta a propósito, así que
+  altavoz de forma irreversible.** El kernel `pkgrel=7` (añade 0022–0023)
+  se compiló, instaló y arrancó el 2026-11-26; un `aplay` por defecto ya
+  llega al final en EP6. PipeWire ignora la tarjeta a propósito, así que
   el escritorio no tiene sonido; sin probar altavoz superior/auricular,
   estéreo, volumen de uso, micrófonos 1–2, audio por Bluetooth ni llamadas.
+- **Contador del slot B resuelto en nuestra unidad** (2026-11-26): el slot B
+  está marcado como correcto en `devinfo` (versión 3.19, un byte en `0x35`:
+  `14 -> 16`, escrito y verificado con `komodo-boot-success --write`). En
+  tres rondas Linux → fastboot sin `set_active`, `slot-successful:b` siguió
+  en `yes` y `slot-retry-count:b` en 2: el contador ya no baja. El ABL ya no
+  vuelve solo al slot A (deducción: no se ha provocado un fallo con B
+  marcado). El paquete del dispositivo `pkgrel=4`, que compila
+  `komodo-bootctl`, se compiló con pmbootstrap, se instaló y se comprobó el
+  mismo día.
 
 Details / Detalles: [DEVICE.md](DEVICE.md), [UNLOCK.md](UNLOCK.md).
 
@@ -242,7 +261,7 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 
 | Component / Componente | Hardware (stock) | Our unit / Nuestra unidad | Third party / Terceros | Notes / Notas |
 |---|---|---|---|---|
-| Boot (slot B) | ABL, boot header v4 | **works** (slot B: RAM-only rescue and Nura on `userdata`) | reported (PR #276) | Milestone 1; "display A" images (2026-11-25, USB gadget at ~26 s); Milestone 2 (Nura; in the rehearsal without `userdata` the initramfs gadget came up at ~28 s). AVB hash footer with AOSP test key, `vbmeta_b` stock; ABL appends the `vendor_boot` cmdline (verified). **Every boot spends one of slot B's 3 retries** and nothing marks it successful; at 0 the ABL boots slot A. Workaround: `fastboot set_active b` beforehand. Unresolved. Since Milestone 3, `reboot bootloader` reaches fastboot without buttons (patch 0007 + `reboot=warm`) and did not spend an extra retry. A `komodo-bootctl` tool to mark the slot ships in the device package as source only: not compiled, never used to write `devinfo` |
+| Boot (slot B) | ABL, boot header v4 | **works** (slot B: RAM-only rescue and Nura on `userdata`) | reported (PR #276) | Milestone 1; "display A" images (2026-11-25, USB gadget at ~26 s); Milestone 2 (Nura; in the rehearsal without `userdata` the initramfs gadget came up at ~28 s). AVB hash footer with AOSP test key, `vbmeta_b` stock; ABL appends the `vendor_boot` cmdline (verified). **Retry counter: resolved on our unit (2026-11-26).** Until then every boot spent one of slot B's 3 retries and at 0 the ABL booted slot A. `komodo-boot-success --write` set slot B's `successful` bit in `devinfo` (layout 3.19, one byte, `0x35`: `14 -> 16`, all 8192 bytes verified); in three Linux → `reboot bootloader` → fastboot rounds without `set_active`, `slot-successful:b` = yes, `slot-retry-count:b` = 2 each time, `current-slot` = b, `slot-unbootable:b` = no. The ABL no longer falls back to slot A by itself (deduced: no failed boot has been tried with B marked); a broken slot B is repaired from fastboot with the buttons. `komodo-bootctl` is built into device `pkgrel=4` (built with pmbootstrap, installed and checked on our unit on 2026-11-26; before that a hand-built copy from the same source did the write); the timer is installed but not enabled by default. Not verified on `komodo`: that `fastboot set_active b` or flashing a `_b` partition clears the mark (reported on `tegu`), behaviour after a fully drained battery. See [SLOT-B.md](SLOT-B.md). Since Milestone 3, `reboot bootloader` reaches fastboot without buttons (patch 0007 + `reboot=warm`) and did not spend an extra retry |
 | UFS storage | 256 GB UFS | **works**: `userdata` read-write, everything else read-only | reported (PR #276) | Milestone 2: udev/initramfs guard keeps every UFS partition except `userdata` read-only (`--check` = 0); the whole `sda` LUN stays writable by design (it holds `userdata`) |
 | Root on userdata | — | **works** | reported (PR #276) | ext4 image (GPT with 4096-byte sectors, `pmOS_boot` + `pmOS_root`) on a loop device over `userdata`, grown to 221.6 GiB on first boot. Single `userdata`: stock Android reportedly reformats it (not verified by us) |
 | USB gadget (NCM/ACM/SSH) | — | **works** | reported (PR #276) | `1d6b:0104`. Milestone 1: `172.16.42.0/24`, ~24 s. Nura: `172.16.43.0/24` (phone `.1`), PC-side MAC `02:6b:6f:6d:6f:01` (fixed, from `deviceinfo`). On Nura's first boot the PC did not enumerate it (errors `-71`); it came back intermittently on some boots in Milestone 3, cause unknown. Later "drops" were the PC losing its static IP on re-enumeration (fixed with a NetworkManager profile by MAC). With `pmos.debug-shell` the debug shell on `ttyGS0` is garbled (two readers); telnet works |
@@ -257,7 +276,7 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 | CPU frequency | — | **works** | unknown | cpufreq (schedutil) under Nura; only `clk-acpm` and `gs101_acpm_tmu` load by modalias |
 | WiFi | BCM4390 (`bcmdhd4390`), PCIe `14e4:4438`, chip revision b1 (PCI rev `0x05`) | **works** (throughput not measured) | disabled upstream (PR #276) | Milestone 4: patches 0012 (`pcie_1`, Gen3 x1 link, 16 MiB DMA pool) and 0013 (`brcmfmac`, not upstream). Firmware `27.10.1121.57.30` from the owner's own factory image, not redistributed. Scan on 2.4/5 GHz (WPA2, WPA3 seen), WPA connection from Phosh, ping ~18 ms without loss, automatic reconnection. Only an advertised link rate of 270 Mbit/s on 5 GHz; `Set join_pref error (-52)`; `p2p-dev-wlan0` not created (WiFi Direct most likely broken). Untested: 6 GHz, WiFi 7/EHT, suspend, power saving, AP mode. NVRAM chosen without reading the OTP; template MAC in it (NetworkManager randomises) |
 | Bluetooth | BCM4390 combo, Bluetooth half on the APM UART (`serial@155d0000`) | **works** (with limits) | unknown | Milestone 5: patches 0014 (DTS) and 0015 (`hci_bcm`, not upstream), `hci_uart` + `btbcm` at 3 Mbaud. ROM `BCM4390B1`, factory `BCM_200.hcd` from the owner's own image (not redistributed), patch loaded in ~4 s (build 0000 → 0474). BlueZ powers `hci0` (LE central and peripheral roles); 12 s scan saw 16 devices; paired and connected with a phone from Phosh, WiFi connected at the same time; autoloads at boot (~10 s), pairing persists, zero failed units. **Default chip address** (generic, the same on every unconfigured BCM4390; the unit's own not located, to be set with `btmgmt public-addr` or similar). Seven `Failed to read codec capabilities (-22)`. Untested: Bluetooth audio (the phone's own audio is only experimental since Milestone 6), HID/A2DP/tethering, suspend and long idle, 4 Mbaud |
-| Audio: speakers | 2× Cirrus CS35L41 rev B2 on `spi19` (Top, also the earpiece; Bottom), fed over TDM 0 by the AoC | **partial / experimental**: bottom speaker, bring-up minimum only | unknown | Milestone 6: patches 0016–0021 (`pkgrel=6`); AoC firmware `16099865-polygon` from the owner's own image (not redistributed), 94 services. A 2 s, 1 kHz, -20 dBFS tone at Digital 657 / Analog 0 (lowest step) on the bottom speaker, heard. **No protection firmware, no factory calibration: higher levels can damage a speaker irreversibly.** Barriers: driver limits (Digital ≤ 817, Analog ≤ 10, verified), boost peak 2.5 A, DSP bypassed, sound servers ignore the card, all modules blacklisted. EP6 stall fixed by `aplay -R` or 0022–0023 (in `pkgrel=7`, not built yet). Untested: top speaker/earpiece, stereo, usable volume, desktop sound (PipeWire not connected), Bluetooth audio, calls. Open warnings: no `dmic_power_list` in the DT, AoC reset callback not registered |
+| Audio: speakers | 2× Cirrus CS35L41 rev B2 on `spi19` (Top, also the earpiece; Bottom), fed over TDM 0 by the AoC | **partial / experimental**: bottom speaker, bring-up minimum only | unknown | Milestone 6: patches 0016–0021 (`pkgrel=6`); AoC firmware `16099865-polygon` from the owner's own image (not redistributed), 94 services. A 2 s, 1 kHz, -20 dBFS tone at Digital 657 / Analog 0 (lowest step) on the bottom speaker, heard. **No protection firmware, no factory calibration: higher levels can damage a speaker irreversibly.** Barriers: driver limits (Digital ≤ 817, Analog ≤ 10, verified), boost peak 2.5 A, DSP bypassed, sound servers ignore the card, all modules blacklisted. EP6 stall fixed by `aplay -R` or 0022–0023 (in `pkgrel=7`, built and booted on 2026-11-26: a default `aplay` plays to the end). Untested: top speaker/earpiece, stereo, usable volume, desktop sound (PipeWire not connected), Bluetooth audio, calls. Open warnings: no `dmic_power_list` in the DT, AoC reset callback not registered |
 | Audio: microphones | 3 PDM microphones on the AoC | **partial / experimental**: microphone 0 only | unknown | Milestone 6: `EP1 capture`, mono 48 kHz, soft gain 22 dB; picked up the speaker tone in a closed loop (1 kHz component ≈60–77 during the tone vs ≈0.3 background; neighbouring frequencies unchanged), playback and capture at the same time. Microphones 1 and 2 untested |
 | Haptics | Cirrus CS40L26 | **not supported** | unknown | Not started |
 | Sensors | unverified | untested | unknown | |

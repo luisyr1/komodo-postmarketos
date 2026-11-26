@@ -1066,3 +1066,70 @@ dirección Bluetooth propia, cámaras y desbloqueo cómodo (la huella es el
 lector ultrasónico de Qualcomm del mundo seguro; la vía realista es el HAL
 de fábrica hablando con Trusty, que ya responde en nuestro kernel; hay un
 paso irreversible, RPMB, que no se ha dado).
+
+## 2026-11-26 — Slot B marked successful; kernel `pkgrel=7` booted / Slot B marcado como correcto; kernel `pkgrel=7` arrancado
+
+Procedure: [SLOT-B.md](SLOT-B.md); rules: [SAFETY.md](SAFETY.md).
+
+Slot B retry counter. Before: `devinfo` layout 3.19, slot B bytes
+`0x34–0x37` = `02 14 00 00` (active, not successful, 2 retries left).
+`komodo-bootctl` was first built on the phone by hand (`gcc -O2 -Wall
+-Wextra -Werror`, the same source as the device package; the package
+itself builds it with abuild's flags plus `-Wall -Wextra`) and installed
+as `/usr/bin/komodo-bootctl`, because device `pkgrel=3` ships it as source
+only. The dry run planned `0x35: 14 -> 16`; the write was tried first on a
+file copy of the partition (exactly one byte differed), then on the
+partition with `komodo-boot-success --write`, on the owner's explicit
+decision: "written and verified (8192 bytes compared, 1 byte changed)";
+`devinfo` and its LUN back to read-only, UFS guard `--check` = 0. Then
+three rounds in a row of Linux → `reboot bootloader` → read in fastboot →
+`fastboot reboot`, without `set_active`: `slot-successful:b` = yes,
+`slot-retry-count:b` = 2 all three times, `current-slot` = b,
+`slot-unbootable:b` = no. The counter no longer drops. The
+`komodo-boot-success.timer` is enabled on our unit (it marks 2 minutes
+after a good boot and does nothing while B is already marked).
+Consequence: the ABL no longer falls back to slot A by itself (deduced: no failed boot has been tried with B marked); a broken
+slot B is repaired from fastboot with the buttons. Not re-measured on
+`komodo`: that `fastboot set_active b` and flashing a `_b` partition clear
+the mark (reported by Omamobile on `tegu`).
+
+Device package `pkgrel=4` builds `komodo-bootctl` into the package. It was
+built with `pmbootstrap build device-google-komodo` (QEMU only, no
+crossdirect) and installed on our unit with `apk add` of the two packages:
+`/usr/bin/komodo-bootctl` now belongs to `device-google-komodo-1-r4`,
+`komodo-bootctl check` reports `slot b successful: yes` (exit 0) and
+`komodo-boot-success` (dry run) reports `slot b already successful` and
+exits 0. `/boot` unchanged; no reflash or reboot needed. The timer stays
+installed but not enabled by default (on our unit it was already
+enabled).
+
+Kernel `linux-google-zumapro` `pkgrel=7` (0022–0023) was built, installed
+and booted; a default `aplay` now plays to the end on EP6.
+
+Device state after this entry: Nura with Phosh on `userdata`, kernel
+package `pkgrel=7`, device package `pkgrel=4` (with `komodo-bootctl`),
+booting from slot B, slot B marked successful; slot A
+untouched.
+
+Resumen: contador del slot B resuelto en nuestra unidad. Antes, `devinfo`
+3.19 con el slot B en `02 14 00 00` (activo, sin marcar, 2 intentos).
+`komodo-bootctl` compilado primero a mano en el propio teléfono (`gcc -O2
+-Wall -Wextra -Werror`, el mismo fuente; el paquete lo compila con los
+flags de abuild más `-Wall -Wextra`) e instalado en
+`/usr/bin/komodo-bootctl`. Ensayo `0x35:
+14 -> 16`, prueba sobre una copia en fichero (1 byte distinto) y escritura
+real con `komodo-boot-success --write`, por decisión expresa del dueño:
+«written and verified (8192 bytes compared, 1 byte changed)»; partición y
+LUN de vuelta a solo lectura, guardia `--check` = 0. Tres ciclos Linux →
+fastboot sin `set_active`: `slot-successful:b` = yes y
+`slot-retry-count:b` = 2 las tres veces. El temporizador está activado en
+nuestra unidad. El ABL ya no vuelve solo al slot A (deducción: no se ha provocado un fallo con B marcado); un slot B roto se
+repara desde fastboot con los botones. Sin volver a medir en `komodo` que
+`set_active b` o flashear `*_b` borren la marca (según Omamobile en
+`tegu`). El paquete del dispositivo `pkgrel=4` compila ya la herramienta:
+compilado con `pmbootstrap build` (solo QEMU), instalado con `apk add` y
+comprobado en nuestra unidad (`/usr/bin/komodo-bootctl` pertenece a
+`device-google-komodo-1-r4`, `check` = 0, el ensayo dice «slot b already
+successful»; `/boot` sin cambios, sin reflashear ni reiniciar); el
+temporizador sigue sin activarse por defecto. Además, el kernel `pkgrel=7` se compiló, instaló y arrancó, y un
+`aplay` por defecto llega al final en EP6.

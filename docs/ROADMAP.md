@@ -9,14 +9,15 @@ comprometidas.
 
 ## Next, in this order / Lo siguiente, en este orden
 
-As of 2026-11-25, after Milestone 6 (first audio, experimental). / A fecha
-2026-11-25, tras el hito 6 (primer audio, experimental).
+As of 2026-11-26, after Milestone 6 (first audio, experimental) and the
+slot-B retry counter fix. / A fecha 2026-11-26, tras el hito 6 (primer
+audio, experimental) y el arreglo del contador del slot B.
 
 1. **Audio, in this order** (Phase 6). / **Audio, en este orden** (fase 6).
-   1. Build and boot `pkgrel=7` (0022–0023 as a package) and check that a
-      default `aplay` plays to the end. / Compilar y arrancar el `pkgrel=7`
-      (0022–0023 en el paquete) y comprobar que un `aplay` por defecto llega
-      al final.
+   1. Build and boot `pkgrel=7`: **done on 2026-11-26** (built, installed
+      and booted; a default `aplay` plays to the end on EP6). / Compilar y
+      arrancar el `pkgrel=7`: **hecho el 2026-11-26** (compilado, instalado
+      y arrancado; un `aplay` por defecto llega al final en EP6).
    2. Connect PipeWire to the card with a WirePlumber rule that puts a
       volume ceiling on it, and only then lift the udev rule that hides the
       card. / Conectar PipeWire a la tarjeta con una regla de WirePlumber
@@ -55,11 +56,20 @@ As of 2026-11-25, after Milestone 6 (first audio, experimental). / A fecha
    hablando con Trusty (como hace Omamobile en el Pixel 9a), y Trusty ya
    responde en nuestro kernel desde el hito 6. En ese camino hay un paso
    irreversible (RPMB) que no se ha dado. Sin empezar.
+5. **NPU** (Phase 8): the Tensor G4 has a machine-learning accelerator
+   (Google's TPU). Find out whether it can be used from mainline Linux at
+   all (driver, firmware, a userspace runtime), and how fast it is, with
+   local speech transcription as the first use in mind. Feasibility not
+   studied yet; nothing run on the phone. / **NPU** (fase 8): el Tensor G4
+   lleva un acelerador de aprendizaje automático (la TPU de Google).
+   Averiguar si se puede usar desde Linux mainline (driver, firmware, un
+   runtime en espacio de usuario) y qué potencia da, pensando primero en
+   transcripción de voz en local. Viabilidad sin estudiar; nada ejecutado
+   en el teléfono.
 
-The open items of Phases 2b–5 (slot-B retry counter, buttons, charging,
-WiFi throughput…) stay open alongside. / Los pendientes de las fases 2b–5
-(contador del slot B, botones, carga, rendimiento del WiFi…) siguen
-abiertos en paralelo.
+The open items of Phases 2b–5 (buttons, charging, WiFi throughput…) stay
+open alongside. / Los pendientes de las fases 2b–5 (botones, carga,
+rendimiento del WiFi…) siguen abiertos en paralelo.
 
 ## Phase 0 — Unlock and backup / Desbloqueo y copia de seguridad
 
@@ -145,25 +155,37 @@ see Phase 2. / Nota posterior: después se logró consola de texto en pantalla
 
 Not achieved in Milestone 2 / No logrado en el hito 2: slot B is never marked
 successful (see Phase 2b). / el slot B nunca se marca como correcto.
+*Later note: slot B was marked successful on 2026-11-26, see Phase 2b. /
+Nota posterior: el slot B se marcó como correcto el 2026-11-26, ver fase 2b.*
 
 ## Phase 2b — Make Milestone 2 livable / Hacer usable el hito 2
 
 **Partly done in Milestone 3 (2026-11-25)**, see
-[MILESTONE-3.md](MILESTONE-3.md); the retry counter is still the main open
-item. / **En parte hecho en el hito 3 (2026-11-25)**; el contador de intentos
-sigue siendo lo principal pendiente.
+[MILESTONE-3.md](MILESTONE-3.md); the retry counter was fixed on our unit on
+2026-11-26. / **En parte hecho en el hito 3 (2026-11-25)**; el contador de
+intentos quedó resuelto en nuestra unidad el 2026-11-26.
 
-- [ ] Slot-B retry counter: every boot spends 1 of 3 and nothing marks the
-  slot successful; at 0 the ABL boots slot A. Today: `fastboot set_active b`
-  by hand. Options: mark the slot successful (third-party notes place the
-  counter in `devinfo`; layout on `komodo` unverified, risky; do not write `devinfo` / no escribir `devinfo`) or another
-  approach. / Contador de intentos del slot B.
-  *Milestone 3: a `komodo-bootctl` tool (decode `devinfo`; write only
-  behind explicit flags) and a `komodo-boot-success` timer ship in the
-  device package, but the tool is source only (not compiled) and the write
-  has never been run; the timer is not enabled. Still open. / Hito 3: la
-  herramienta va en el paquete solo como fuente, sin compilar, y la
-  escritura nunca se ha ejecutado. Sigue abierto.*
+- [x] Slot-B retry counter: **done on our unit on 2026-11-26**, see
+  [SLOT-B.md](SLOT-B.md). `komodo-boot-success --write` set the
+  `successful` bit of slot B in `devinfo` (layout 3.19; one byte, `0x35`:
+  `14 -> 16`, written and verified). Three Linux → fastboot rounds without
+  `set_active`: `slot-successful:b` = yes and `slot-retry-count:b` = 2 every
+  time, so the counter no longer drops. Consequence: the ABL no longer falls
+  back to slot A by itself (deduced: no failed boot has been tried with B marked); a broken slot B is repaired from fastboot with
+  the buttons. / Contador de intentos del slot B: **hecho en nuestra unidad
+  el 2026-11-26**: un byte de `devinfo` (`0x35`: `14 -> 16`), escrito y
+  verificado; en tres rondas Linux → fastboot sin `set_active`,
+  `slot-successful:b` = yes y `slot-retry-count:b` = 2 las tres veces. El
+  ABL ya no vuelve solo al slot A (deducción: no se ha provocado un fallo con B marcado); un slot B roto se repara desde fastboot
+  con los botones.
+  *Milestone 3 shipped the `komodo-bootctl` tool as source only; device
+  `pkgrel=4` builds it into the package (built, installed and checked on our
+  unit on 2026-11-26).
+  The timer stays installed but not enabled: each owner decides. / En el
+  hito 3 la herramienta iba solo como fuente; el dispositivo `pkgrel=4` la
+  compila en el paquete (compilado, instalado y comprobado en nuestra unidad
+  el 2026-11-26). El temporizador
+  sigue instalado sin activar: lo decide cada dueño.*
 - [ ] Measure how much a Linux panic consumes of the slot-B retry counter. /
   Medir cuánto consume un pánico de Linux del contador de intentos.
 - [x] Reliable way to the bootloader from Linux: **done in Milestone 3**,
@@ -322,8 +344,10 @@ se pierde la raíz Linux.
   Primer tono por el altavoz inferior al mínimo (se oyó).
 - [x] Microphone 0 captures (closed loop with the speaker). / El micrófono 0
   graba (bucle cerrado con el altavoz).
-- [ ] Build and boot `pkgrel=7` (EP6 fix 0022, Omamobile's PR #203, plus
-  0023). / Compilar y arrancar el `pkgrel=7`.
+- [x] Build and boot `pkgrel=7` (EP6 fix 0022, Omamobile's PR #203, plus
+  0023): **done on 2026-11-26**; a default `aplay` plays to the end on EP6.
+  / Compilar y arrancar el `pkgrel=7`: **hecho el 2026-11-26**; un `aplay`
+  por defecto llega al final en EP6.
 - [ ] PipeWire/WirePlumber with a volume ceiling; desktop sound. /
   PipeWire/WirePlumber con techo de volumen; sonido en el escritorio.
 - [ ] Speaker-protection firmware and factory calibration (prerequisite for
@@ -398,3 +422,13 @@ se pierde la raíz Linux.
   world, factory HAL over Trusty; an irreversible RPMB step not taken; see
   "Next" above). / Lector de huella (parte del desbloqueo cómodo; ver
   "Lo siguiente" arriba).
+
+## Phase 8 — NPU / Acelerador de aprendizaje automático
+
+- [ ] Feasibility study of the Tensor G4's machine-learning accelerator
+  (Google's TPU) under mainline Linux: driver, firmware, userspace runtime,
+  and measured throughput. First use in mind: local speech transcription.
+  Not started. / Estudio de viabilidad del acelerador de aprendizaje
+  automático del Tensor G4 (la TPU de Google) bajo Linux mainline: driver,
+  firmware, runtime en espacio de usuario y rendimiento medido. Primer uso
+  previsto: transcripción de voz en local. Sin empezar.

@@ -11,9 +11,10 @@
 > tone on the bottom speaker at the lowest gain, and one microphone; no
 > desktop sound, and the amplifiers run without their protection firmware,
 > so a higher volume can damage a speaker. Not working yet: usable audio,
-> modem, cameras, managed USB-C; charging from a PC port barely keeps up;
-> every boot still spends a slot-B retry. Stock Android 17 stays on slot A,
-> but its data was wiped.**
+> modem, cameras, managed USB-C; charging from a PC port barely keeps up.
+> Since 2026-11-26 slot B is marked successful on our unit, so boots no
+> longer spend its retries ([docs/SLOT-B.md](docs/SLOT-B.md)). Stock
+> Android 17 stays on slot A, but its data was wiped.**
 >
 > **Estado: Nura (edge) con la UI Phosh está instalado en `userdata` y arranca
 > en nuestra unidad desde el slot B (hitos 3 a 6, 2026-11-25): pantalla con
@@ -27,8 +28,9 @@
 > micrófono; sin sonido en el escritorio, y los amplificadores van sin su
 > firmware de protección, así que un volumen mayor puede dañar un altavoz.
 > Aún no funcionan: audio usable, módem, cámaras ni USB-C gestionado; desde
-> un puerto de PC casi no carga; cada arranque sigue gastando un intento del
-> slot B. Android 17 stock sigue en el slot A, pero sus datos se borraron.**
+> un puerto de PC casi no carga. Desde el 2026-11-26 el slot B está marcado
+> como correcto en nuestra unidad y los arranques ya no gastan sus intentos.
+> Android 17 stock sigue en el slot A, pero sus datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -131,9 +133,9 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   without the factory calibration; raising the volume can damage a speaker
   irreversibly.** Every audio module stays blacklisted and the levels at
   the bring-up minimum. Patches 0017 and 0022 are Lef's pull requests #204
-  and #203 to the Omamobile kernel; the recipe here is at `pkgrel=7` (with
-  0022–0023, tested only by loading two modules by hand; not built or
-  booted yet). PipeWire ignores the card on purpose, so the desktop has no
+  and #203 to the Omamobile kernel; `pkgrel=7` (with 0022–0023) was built,
+  installed and booted on 2026-11-26, and a default `aplay` now plays to
+  the end on EP6. PipeWire ignores the card on purpose, so the desktop has no
   sound; the top speaker/earpiece, stereo, usable volume, the other two
   microphones, Bluetooth audio and calls are untried.
   [docs/MILESTONE-6.md](docs/MILESTONE-6.md).
@@ -142,10 +144,11 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) and
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
-- Known problems: the slot-B retry counter is spent on every boot and nothing
-  marks the slot successful (after 3 boots the ABL falls back to slot A;
-  `fastboot set_active b` beforehand; a marking tool ships as source only,
-  never used); audio only experimental (above), no modem or cameras; WiFi and Bluetooth
+- Slot-B retry counter: **resolved on our unit on 2026-11-26** (one byte of
+  `devinfo`, written and verified; the counter no longer drops, and the ABL
+  no longer falls back to slot A by itself (deduced: no failed boot has been tried with B marked)). Each owner decides; see
+  [docs/SLOT-B.md](docs/SLOT-B.md) and [docs/SAFETY.md](docs/SAFETY.md).
+- Known problems: audio only experimental (above), no modem or cameras; WiFi and Bluetooth
   limits as listed above (warnings `Set join_pref error (-52)` and a failed P2P interface in
   the log); no managed USB-C (a TCPC patch is
   prepared, not integrated); no verified button actions; power off untested;
@@ -156,12 +159,12 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next, in this order: audio (build and boot `pkgrel=7`, PipeWire with a
-  volume ceiling, the speaker-protection firmware and calibration, the top
+- Next, in this order: audio (PipeWire with a volume ceiling, the
+  speaker-protection firmware and calibration, the top
   speaker, the other microphones, Bluetooth audio); then a Bluetooth
   address of our own, cameras (feasibility studied: likely weeks of work,
-  quality far below stock) and easy unlock; the slot-B retry counter,
-  buttons, USB-C/charging and WiFi throughput stay open
+  quality far below stock), easy unlock and the NPU; buttons,
+  USB-C/charging and WiFi throughput stay open
   ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
@@ -176,7 +179,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 
 | Component | Our unit | Third-party reports |
 |---|---|---|
-| Boot | **works** (slot B, Nura from `userdata`; each boot spends a slot-B retry); `reboot bootloader` reaches fastboot | reported (Omamobile kernel PR #276) |
+| Boot | **works** (slot B, Nura from `userdata`; slot B marked successful since 2026-11-26, the retry counter no longer drops); `reboot bootloader` reaches fastboot | reported (Omamobile kernel PR #276) |
 | UFS storage | **works**: `userdata` read-write, every other partition kept read-only | reported (PR #276) |
 | Root on userdata | **works** (ext4 image on loop, 4096-byte sectors) | reported (PR #276) |
 | USB gadget (NCM/ACM/SSH) | **works** (SSH to Nura at `172.16.43.1`); intermittent `error -71` enumeration failures on some boots | reported (PR #276) |
@@ -360,9 +363,9 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   calibración de fábrica; subir el volumen puede dañar un altavoz de forma
   irreversible.** Todos los módulos de audio siguen en lista negra y los
   niveles, en el mínimo de puesta en marcha. Los parches 0017 y 0022 son
-  los pull requests #204 y #203 de Lef al kernel de Omamobile; la receta de
-  aquí está en `pkgrel=7` (con 0022–0023, probados solo cargando dos
-  módulos a mano; sin compilar ni arrancar aún). PipeWire ignora la tarjeta
+  los pull requests #204 y #203 de Lef al kernel de Omamobile; el
+  `pkgrel=7` (con 0022–0023) se compiló, instaló y arrancó el 2026-11-26, y
+  un `aplay` por defecto ya llega al final en EP6. PipeWire ignora la tarjeta
   a propósito, así que el escritorio no tiene sonido; sin probar el altavoz
   superior/auricular, estéreo, volumen de uso, los otros dos micrófonos,
   audio por Bluetooth ni llamadas.
@@ -372,10 +375,11 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
   (`device-google-komodo`, `linux-google-zumapro`) y
   [`scripts/mkimages-pmos.sh`](scripts/mkimages-pmos.sh).
-- Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
-  el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
-  hacer antes `fastboot set_active b`; la herramienta para marcarlo va solo
-  como fuente, sin usar); audio solo experimental (arriba), sin módem ni
+- Contador del slot B: **resuelto en nuestra unidad el 2026-11-26** (un byte
+  de `devinfo`, escrito y verificado; el contador ya no baja y el ABL ya no
+  vuelve solo al slot A (deducción: no se ha provocado un fallo con B marcado)). Lo decide cada dueño; ver
+  [docs/SLOT-B.md](docs/SLOT-B.md) y [docs/SAFETY.md](docs/SAFETY.md).
+- Problemas conocidos: audio solo experimental (arriba), sin módem ni
   cámaras; WiFi y
   Bluetooth con los límites de arriba (avisos `Set join_pref error (-52)` y fallo de la
   interfaz P2P en el log); sin USB-C gestionado
@@ -387,13 +391,13 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   deja el sistema `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente, en este orden: audio (compilar y arrancar el `pkgrel=7`,
-  PipeWire con techo de volumen, firmware de protección y calibración,
+- Siguiente, en este orden: audio (PipeWire con techo de volumen,
+  firmware de protección y calibración,
   altavoz superior, los otros micrófonos, audio por Bluetooth); después,
   dirección Bluetooth propia, cámaras (viabilidad estudiada: probablemente
-  semanas de trabajo, calidad muy inferior a la de stock) y desbloqueo
-  cómodo; siguen abiertos el contador del slot B, los botones, USB-C/carga
-  y el rendimiento del WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
+  semanas de trabajo, calidad muy inferior a la de stock), desbloqueo
+  cómodo y la NPU; siguen abiertos los botones, USB-C/carga y el
+  rendimiento del WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -403,7 +407,8 @@ el bootloader identifica el panel como `google-km4`.
 ### Estado del hardware
 
 La tabla de arriba aplica. En nuestra unidad: arranque **funciona** (slot B,
-Nura desde `userdata`; cada arranque gasta un intento del slot B) y
+Nura desde `userdata`; slot B marcado como correcto desde el 2026-11-26, el
+contador ya no baja) y
 `reboot bootloader` llega a fastboot; raíz en `userdata` **funciona**; UFS:
 `userdata` en lectura/escritura y el resto en solo lectura; gadget USB
 (NCM/ACM/SSH) **funciona**, con fallos intermitentes `error -71` en algunos

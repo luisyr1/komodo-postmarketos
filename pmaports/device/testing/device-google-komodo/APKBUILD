@@ -3,11 +3,17 @@ maintainer="komodo port <komodo@example.invalid>"
 pkgname=device-google-komodo
 pkgdesc="Google Pixel 9 Pro XL"
 pkgver=1
-pkgrel=3
+pkgrel=4
 url="https://postmarketos.org"
 license="MIT AND Apache-2.0"
 arch="aarch64"
-options="!check !archcheck"
+# !pmb:crossdirect: komodo-bootctl is built with the target gcc under QEMU.
+# Under crossdirect, a gcc call without -c goes to the target gcc with a
+# bare argv[0]; if the host's qemu-aarch64 binfmt entry preserves argv[0]
+# (flag P), that gcc finds itself in /native/usr/lib/crossdirect/<arch>
+# through $PATH, relocates its search paths and fails with "cannot execute
+# 'cc1'" (seen in pkgrel=1). One small C file: QEMU is fast enough.
+options="!check !archcheck !pmb:crossdirect"
 # android-tools-mkbootimg: boot-deploy runs mkbootimg (generate_bootimg)
 depends="
 	android-tools-mkbootimg
@@ -15,7 +21,8 @@ depends="
 	postmarketos-base
 "
 # linux-headers: <linux/fs.h> for komodo-bootctl (BLK* ioctls); the
-# compiler comes from build-base, always present in the build chroot
+# compiler and musl-dev come from build-base, always present in the build
+# chroot
 makedepends="devicepkg-dev linux-headers"
 subpackages="$pkgname-systemd"
 source="
@@ -36,9 +43,10 @@ source="
 
 build() {
 	devicepkg_build $startdir $pkgname
+
 	# devinfo slot-flag tool (read-only unless --write --i-understand-devinfo)
-	# komodo-bootctl is not compiled in this pkgrel: the crossdirect build
-	# environment has no cc1. It is built separately when needed.
+	${CC:-gcc} $CPPFLAGS $CFLAGS -Wall -Wextra \
+		-o "$srcdir"/komodo-bootctl "$srcdir"/komodo-bootctl.c $LDFLAGS
 }
 
 package() {
@@ -61,8 +69,9 @@ package() {
 	install -Dm644 "$srcdir"/google-komodo-modprobe.conf \
 		"$pkgdir"/usr/lib/modprobe.d/google-komodo.conf
 
-	# Slot B boot-success helper. NOT FUNCTIONAL in this pkgrel: it calls
-	# komodo-bootctl, which is shipped as source only and not built.
+	# devinfo: decoding is always available; the write is used only by
+	# komodo-boot-success (systemd subpackage, timer NOT enabled by default)
+	install -Dm755 "$srcdir"/komodo-bootctl -t "$pkgdir"/usr/bin/
 	install -Dm755 "$srcdir"/komodo-boot-success -t "$pkgdir"/usr/libexec/
 }
 
@@ -77,9 +86,12 @@ systemd() {
 		"$subpkgdir"/usr/lib/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
 
 	# Slot B boot-success marker. Installed, not enabled (no preset, no
-	# .wants link). DO NOT ENABLE OR RUN WITH --write: it would write to the
-	# devinfo partition, which has never been tested on this device and
-	# could leave the phone unbootable. Kept for reference only.
+	# .wants link): enabling it means writing one byte of devinfo (0x35,
+	# slot B "successful"), which each owner decides; read SLOT-B.md and
+	# SAFETY.md in the port's docs/ first. Verified on one unit
+	# (2026-11-26, devinfo 3.19): with B marked the retry counter stops
+	# dropping, and the ABL no longer falls back to slot A by itself
+	# (deduced from the mark; no failed boot has been tried with B marked).
 	install -Dm644 "$srcdir"/komodo-boot-success.service \
 		"$srcdir"/komodo-boot-success.timer \
 		-t "$subpkgdir"/usr/lib/systemd/system/

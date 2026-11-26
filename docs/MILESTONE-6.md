@@ -9,7 +9,9 @@ owner's own factory image, and a staged bring-up done by hand. A short
 was heard, and **microphone 0** picked it up while it played. The recipe
 in this repository is already `pkgrel=7`: it adds patches 0022–0023, which
 we tested by loading two rebuilt modules by hand, but **`pkgrel=7` itself
-has not been built or booted yet**.
+has not been built or booted yet**. *Later note: `pkgrel=7` was built,
+installed and booted on 2026-11-26; a default `aplay` plays to the end on
+EP6 ([JOURNAL.md](JOURNAL.md)).*
 
 It is **not** usable audio: the desktop has no sound (PipeWire and
 PulseAudio are told to ignore the card), only the bottom speaker at the
@@ -25,7 +27,9 @@ dueño y una puesta en marcha por etapas hecha a mano. Un tono corto de
 y se oyó, y el **micrófono 0** lo captó mientras sonaba. La receta de este
 repositorio ya es `pkgrel=7`: añade los parches 0022–0023, que probamos
 cargando a mano dos módulos recompilados, pero **el `pkgrel=7` como tal aún
-no se ha compilado ni arrancado**.
+no se ha compilado ni arrancado**. *Nota posterior: el `pkgrel=7` se
+compiló, instaló y arrancó el 2026-11-26; un `aplay` por defecto llega al
+final en EP6.*
 
 **No** es audio usable: el escritorio no tiene sonido (PipeWire y
 PulseAudio tienen orden de ignorar la tarjeta), solo se probaron el altavoz
@@ -110,7 +114,7 @@ comprobó una vez, en una unidad.
 | Item | Value |
 |---|---|
 | Kernel package, tested | `linux-google-zumapro` `pkgrel=6`: same source commit `ffd33b7ddc716eb3568fff9f8d337a4032d109eb`, patches 0001–0021 |
-| Kernel package, in this repository | `pkgrel=7`: 0001–0023 ([`../pmaports/device/testing/linux-google-zumapro/`](../pmaports/device/testing/linux-google-zumapro/)); **not built or booted yet** |
+| Kernel package, in this repository | `pkgrel=7`: 0001–0023 ([`../pmaports/device/testing/linux-google-zumapro/`](../pmaports/device/testing/linux-google-zumapro/)); not built or booted at the time of this milestone; built and booted on 2026-11-26 |
 | Kernel config | unchanged: CS35L41, Trusty, the GSA and the AoC (core, mailbox, ALSA) were already modules |
 | Device package | `device-google-komodo` `pkgrel=3`, unchanged |
 | Resulting `uname -r` | `7.3.0-rc6-zumapro` |
@@ -429,7 +433,8 @@ deleted; only these numbers were kept.
 2. **Desktop sound:** PipeWire and PulseAudio ignore the card on purpose.
    Connecting PipeWire needs a WirePlumber rule with a volume ceiling first,
    and `pkgrel=7` (0022–0023) built and booted; neither is done.
-3. **`pkgrel=7`:** not built or booted as a package.
+3. **`pkgrel=7`:** not built or booted as a package. *(Built and booted
+   on 2026-11-26.)*
 4. **Top speaker and earpiece:** not tried. Stereo: not tried.
 5. **Microphones 1 and 2:** not tried.
 6. **Usable volume:** only the bring-up minimum was played.
@@ -472,7 +477,7 @@ Los comandos, las tablas completas y el hash están en la sección inglesa.
 1. **Entradas:** probado el paquete del kernel `linux-google-zumapro`
    `pkgrel=6` (mismo commit `ffd33b7…`, parches 0001–0021); en el
    repositorio está el `pkgrel=7` (0001–0023), **sin compilar ni arrancar
-   aún**. La config no cambia. Paquete del dispositivo sin cambios
+   aún** (se compiló y arrancó después, el 2026-11-26). La config no cambia. Paquete del dispositivo sin cambios
    (`pkgrel=3`). Firmware `aoc.bin` de la imagen de fábrica
    `CP4A.261105.040.A1`, que no se redistribuye. Ficheros para el teléfono
    en `scripts/audio/`.
@@ -590,7 +595,8 @@ Los comandos, las tablas completas y el hash están en la sección inglesa.
     firmware de protección ni calibración); sonido en el escritorio
     (PipeWire ignora la tarjeta a propósito; antes hace falta una regla de
     WirePlumber con techo de volumen y el `pkgrel=7` arrancado); el
-    `pkgrel=7` como paquete; altavoz superior y auricular, estéreo; los
+    `pkgrel=7` como paquete (compilado y arrancado después, el
+    2026-11-26); altavoz superior y auricular, estéreo; los
     micrófonos 1 y 2; volumen de uso; audio por Bluetooth y llamadas;
     avisos abiertos (`dmic_power_list`, reset del AoC); háptica, audio por
     USB-C y DisplayPort. Nuestros parches no se han enviado a ningún sitio

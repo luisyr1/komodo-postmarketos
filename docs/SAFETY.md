@@ -112,15 +112,21 @@ datos o brickear el dispositivo.
   bootloader (step 2 above): the scripts cannot check slot B's. / Antes del
   primer `set_active b`, verifica que ambos slots llevan el mismo bootloader
   (paso 2): los scripts no pueden comprobar el del slot B.
-- **Verified on our unit:** flashing any `_b` partition sets
-  `slot-successful:b=no`; `set_active b` gives 3 retries; our Linux never marks
+- **Verified on our unit** (with slot B not yet marked): flashing any `_b`
+  partition sets `slot-successful:b=no`; `set_active b` gives 3 retries; our Linux never marks
   B successful, and once the retries ran out the bootloader went back to slot
-  A by itself. / **Verificado en nuestra unidad:** flashear cualquier `_b`
+  A by itself. / **Verificado en nuestra unidad** (con el slot B aún sin
+  marcar): flashear cualquier `_b`
   pone `slot-successful:b=no`; `set_active b` da 3 intentos; nuestro Linux
   nunca marca B como correcto y, agotados los intentos, el bootloader volvió
-  solo al slot A.
+  solo al slot A. *Since 2026-11-26 our unit has slot B marked successful
+  (the one `devinfo` exception below) and the counter no longer drops. /
+  Desde el 2026-11-26 nuestra unidad tiene el slot B marcado como correcto
+  (la única excepción de `devinfo`, abajo) y el contador ya no baja.*
 - **Never flash:** `bootloader`, `radio`, `vbmeta`, `devinfo`, `efs`,
-  `persist`, or **anything on slot A**.
+  `persist`, or **anything on slot A**. Never write `devinfo` in any other
+  way either, with the single exception described next. / Tampoco escribas
+  `devinfo` de ninguna otra forma, con la única excepción que sigue.
 - **Never** run `flash-all.sh` and **never** use `fastboot -w` (wipe).
 - **Never run `fastboot flashing lock`** (re-lock) while any non-stock image is
   on either slot: it can hard-brick the phone, and re-locking also wipes all
@@ -138,6 +144,63 @@ datos o brickear el dispositivo.
   read-write.
 - Never commit logs, `getprop` output or bug reports without scrubbing serial,
   IMEI, MAC and account data.
+
+## `devinfo`: the one exception / La única excepción
+
+`devinfo` stays on the never-touch list. The only write this project
+allows is **one byte**: the flags byte of slot B at offset `0x35`, where
+`komodo-boot-success --write` sets the `successful` bit (`14 -> 16` on our
+unit), the same bit Android's boot-control HAL sets on slot A after every
+good boot. It is each owner's explicit decision; nothing does it by
+default (the timer is installed but not enabled). Procedure:
+[SLOT-B.md](SLOT-B.md).
+
+- **Guards:** `komodo-bootctl` refuses any layout other than 3.19 and any
+  plan that changes more or other than that one byte; it rereads right
+  before writing, writes with `O_DSYNC` and compares all 8192 bytes read
+  back from the UFS (exit code 3 if they differ; the wrapper then prints
+  `VERIFY FAILED` and exits with 1). The wrapper only acts on
+  a slot B boot, opens the read-only guard for the `devinfo` LUN and
+  partition only, relocks them on exit (plus a 60 s timer) and keeps a
+  root-only copy of the partition on the phone before writing.
+- **Real risk:** a power cut or crash **during** the write. The kernel
+  rewrites the whole first 4 KiB block, which also holds factory records
+  (serial numbers, IMEI, MAC addresses), so an interrupted write could
+  damage more than the flags. The window is milliseconds; the impact could be high, and
+  fastboot cannot repair anything beyond the slot bytes. Write with the
+  cable connected and enough battery.
+- **Undo:** `fastboot set_active b` should rewrite slot B to 3 retries, not
+  successful (reported by Omamobile on `tegu`; not verified on `komodo`).
+  It is not exactly the state before the write (ours had 2 retries left).
+- **Consequence:** with slot B marked, the ABL **no longer falls back to
+  slot A by itself** (deduced: no failed boot has been tried with B
+  marked). A broken image on slot B is repaired by hand: Power + Volume
+  Down to fastboot, then reflash or switch slots.
+
+`devinfo` sigue en la lista de no tocar. La única escritura que permite este
+proyecto es **un byte**: el de flags del slot B en `0x35`, donde
+`komodo-boot-success --write` pone el bit `successful` (`14 -> 16` en
+nuestra unidad), el mismo que el HAL de Android pone en el slot A tras cada
+arranque bueno. Es decisión expresa de cada dueño; nada lo hace por defecto
+(el temporizador se instala sin activar). Salvaguardas: solo la versión
+3.19, exactamente ese byte, relectura antes de escribir, `O_DSYNC` y
+comparación de los 8192 bytes leídos del UFS (código 3 si difieren; el
+envoltorio imprime entonces `VERIFY FAILED` y sale con 1); el envoltorio
+solo actúa en un arranque del slot B, abre la guardia de solo lectura solo
+para el LUN y la partición de `devinfo`, la vuelve a cerrar al salir (y
+además con un temporizador de 60 s) y guarda antes una copia, solo para
+root, en el teléfono. **Riesgo real:** un corte o un cuelgue **durante** la
+escritura, que reescribe el bloque de 4 KiB donde también están los datos
+de fábrica (números de serie, IMEI, direcciones MAC), así que una escritura
+interrumpida podría dañar algo más que los flags; ventana de milisegundos,
+impacto posiblemente alto, y fastboot no repara nada más allá de los bytes
+de slot. Escribe con el cable puesto y batería suficiente. **Deshacer:**
+`fastboot set_active b` debería dejar el slot B con 3 intentos y sin marcar
+(según Omamobile en `tegu`; sin verificar en `komodo`); no es exactamente el
+estado previo (el nuestro tenía 2 intentos). **Consecuencia:** con B
+marcado el ABL **ya no vuelve solo al slot A** (deducción: no se ha
+provocado un fallo con B marcado); una imagen rota en B se repara a mano
+desde fastboot (Encendido + Volumen −).
 
 ## The `userdata` trade-off / La contrapartida de `userdata`
 

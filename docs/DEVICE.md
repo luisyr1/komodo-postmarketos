@@ -53,12 +53,13 @@ Milestone 3) on `userdata` and the five slot-B images built from it; since
 Milestone 4, `boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b` carry the
 `pkgrel=3` kernel (WiFi), since Milestone 5 the `pkgrel=4` kernel
 (Bluetooth), and since Milestone 6 the `pkgrel=6` kernel (experimental
-audio). Slot B is still never marked successful. See
-[STATUS.md](STATUS.md). / Nota posterior: el slot activo es ahora B, con
+audio); since 2026-11-26 the `pkgrel=7` kernel, and slot B is marked
+successful ([SLOT-B.md](SLOT-B.md)). See [STATUS.md](STATUS.md). / Nota posterior: el slot activo es ahora B, con
 Nura (UI Phosh, hito 3) en `userdata`; desde el hito 4 `boot_b`,
 `vendor_boot_b` y `vendor_kernel_boot_b` llevan el kernel `pkgrel=3` (WiFi),
 desde el hito 5 el `pkgrel=4` (Bluetooth) y desde el hito 6 el `pkgrel=6`
-(audio experimental). El slot B sigue sin marcarse como correcto.*
+(audio experimental), y desde el 2026-11-26 el `pkgrel=7`; el slot B está
+marcado como correcto.*
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -105,6 +106,10 @@ hito 1.
   with its data intact. / Nuestro Linux nunca marca el slot como correcto;
   agotados los intentos por reinicios forzados, el bootloader volvió solo al
   slot A y Android arrancó con sus datos intactos.
+  *Later note: since 2026-11-26 slot B is marked successful on our unit and
+  `slot-retry-count:b` no longer drops ([SLOT-B.md](SLOT-B.md)). / Nota
+  posterior: desde el 2026-11-26 el slot B está marcado como correcto y el
+  contador ya no baja.*
 - Not verified: how much of the counter a Linux panic consumes. / Sin
   verificar: cuánto del contador consume un pánico de Linux.
 - `/proc/bootconfig` under Linux reports `slot_suffix` `"_b"`.
