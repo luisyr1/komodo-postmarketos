@@ -1,21 +1,25 @@
 # scripts/
 
 Build and flashing helpers for Milestone 1 (RAM-only Linux on slot B) and
-Milestone 2 (Nura on `userdata`), and the firmware installers of
-Milestone 4 (WiFi) and Milestone 5 (Bluetooth). The procedures that use them
-are in [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
+Milestone 2 (Nura on `userdata`), the firmware installers of
+Milestone 4 (WiFi) and Milestone 5 (Bluetooth), and the phone-side audio
+bring-up files of Milestone 6 in [`audio/`](audio/). The procedures that use
+them are in [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
 [../docs/MILESTONE-2.md](../docs/MILESTONE-2.md),
-[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md) and
-[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md); read
+[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md),
+[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md) and
+[../docs/MILESTONE-6.md](../docs/MILESTONE-6.md); read
 [../docs/SAFETY.md](../docs/SAFETY.md) first. **No warranty.**
 
 Herramientas de build y flasheo del hito 1 (Linux solo en RAM en el slot B) y
-del hito 2 (Nura en `userdata`), y los instaladores del firmware del hito 4
-(WiFi) y del hito 5 (Bluetooth). Los procedimientos están en
+del hito 2 (Nura en `userdata`), los instaladores del firmware del hito 4
+(WiFi) y del hito 5 (Bluetooth), y los ficheros de audio del hito 6 para el
+teléfono, en [`audio/`](audio/). Los procedimientos están en
 [../docs/MILESTONE-1.md](../docs/MILESTONE-1.md),
 [../docs/MILESTONE-2.md](../docs/MILESTONE-2.md),
-[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md) y
-[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md); lee antes
+[../docs/MILESTONE-4.md](../docs/MILESTONE-4.md),
+[../docs/MILESTONE-5.md](../docs/MILESTONE-5.md) y
+[../docs/MILESTONE-6.md](../docs/MILESTONE-6.md); lee antes
 [../docs/SAFETY.md](../docs/SAFETY.md). **Sin garantía.**
 
 Rules / Reglas:
@@ -142,6 +146,33 @@ borran al salir.
 | 7 | `mkimages-pmos.sh` | **Milestone 2.** From `pmbootstrap export` (`vmlinuz`, `initramfs`, boot-deploy's `vendor_boot.img`, `google-komodo.img`): takes the Nura cmdline and DTB out of `vendor_boot.img`, checks it against the exported initramfs, the DTB `/soc_compatible` node and the initramfs contents (hook, UFS guard, `unudhcpd.conf`), recompresses the initramfs to lz4 legacy, and builds the five slot-B images with the same layout and AVB values as `mkimages.sh` (DTB and initramfs in `vendor_kernel_boot`). Then checks the root image (GPT with 4096-byte sectors, exactly `pmOS_boot` + `pmOS_root`, ext*, fits in `userdata`) and converts it to `google-komodo-sparse.img`, checking the round trip. Same tool pins as `mkimages.sh`. Never calls `fastboot`. Flashing is by hand, see [MILESTONE-2.md](../docs/MILESTONE-2.md). / Cinco imágenes del slot B y sparse de `userdata` a partir de `pmbootstrap export`. | no |
 | 8 | `install-wifi-firmware.sh` | **Milestone 4.** Takes the BCM4390 WiFi firmware **you** extracted from your own factory image (`vendor.img`, `/vendor/firmware`; nothing is downloaded or shipped), checks each file against the SHA-256 pinned for `CP4A.261105.040.A1`, stages it inside `KOMODO_WORK` under the names `brcmfmac` asks for (`brcmfmac4390{b1,b0,a0}-pcie.google,zumapro-komodo.{bin,txt,clm_blob,txcap_blob}`), copies it over SSH to `/lib/firmware/updates/brcm/` (asks for `sudo` on the phone) and checks the hashes there. Options `--dry-run`, `--only-b1`, `--nvram-ref`, `--mac`, `--remove`. Never touches modules, blacklists, boot partitions or `fastboot`, and never prints MAC addresses. / Prepara y copia al teléfono el firmware WiFi que tú sacaste de tu imagen de fábrica, con los hashes comprobados. | **yes** (files under `/lib/firmware/updates/brcm/` only) |
 | 9 | `install-bt-firmware.sh` | **Milestone 5.** Takes the BCM4390 Bluetooth firmware **you** extracted from your own factory image (`vendor.img`, `/vendor/firmware/brcm/BCM_200.hcd`; nothing is downloaded or shipped), checks it against the SHA-256 pinned for `CP4A.261105.040.A1`, stages it inside `KOMODO_WORK` as `BCM.google,zumapro-komodo.hcd` (the name `btbcm` asks for), copies it over SSH to `/lib/firmware/updates/brcm/` (asks for `sudo` on the phone) and checks the hash there. Options `--dry-run`, `--alt` (the factory `BCM.hcd` instead, an untried fallback), `--remove`. Never touches modules, blacklists, boot partitions or `fastboot`, and never reads, prints or sets Bluetooth addresses. / Prepara y copia al teléfono el firmware Bluetooth que tú sacaste de tu imagen de fábrica, con el hash comprobado. | **yes** (one file under `/lib/firmware/updates/brcm/` only) |
+
+## Phone-side audio files (`audio/`) / Ficheros de audio para el teléfono
+
+**Milestone 6, experimental.** These run **on the phone**, as root, not on
+the PC, so the `KOMODO_WORK` rules above do not apply to them; they write
+only under `/var/lib/komodo-audio`, `/run` and the AoC's sysfs node, and
+they read no device identifiers. / **Hito 6, experimental.** Se ejecutan
+**en el teléfono**, como root, no en el PC, así que las reglas de
+`KOMODO_WORK` no se les aplican; solo escriben en `/var/lib/komodo-audio`,
+`/run` y el nodo sysfs del AoC, y no leen identificadores del dispositivo.
+
+> **The speaker amplifiers run without Cirrus' protection firmware and
+> without the factory calibration. A higher volume can damage a speaker
+> irreversibly. Do not modify these files to raise levels.** / **Los
+> amplificadores van sin firmware de protección ni calibración. Un volumen
+> mayor puede dañar un altavoz de forma irreversible. No modifiques estos
+> ficheros para subir niveles.**
+
+| File | What it does / Qué hace | Where on the phone |
+|---|---|---|
+| `komodo-audio.conf` | modprobe blacklist of Trusty, the GSA, the AoC drivers, the CS35L41 amplifiers and the AoC sound card, so nothing of the audio autoloads; install it **before** the first boot of a kernel with patches 0019–0021 and keep it. / Lista negra de todos los módulos de audio; instálala **antes** del primer arranque y déjala puesta. | `/etc/modprobe.d/komodo-audio.conf` |
+| `komodo-aoc-start` | `amps` / `aoc` / `card`: loads the modules in order, starts the AoC with `aoc-komodo.bin` (your own factory `aoc.bin`, not shipped) and waits for its services; hang-safe marker (`--retry` after a start that never finished); refuses a second AoC start in the same boot. Sets no levels and plays nothing. Adapted from Omamobile's AoC start scripts (MIT, Copyright (c) 2026 Derek Ross and Omamobile contributors). / Arranca el AoC por etapas con marcador anti-cuelgue; no toca niveles ni reproduce nada. | `/usr/local/bin/` |
+| `komodo-first-tone.sh` | one 2 s, 1 kHz, -20 dBFS tone through the bottom speaker at fixed minimum levels (Digital 657, Analog 0, DSP bypassed, top amplifier at the minimum); checks the driver's limits and reads every level back, **refusing to play** if anything differs; back to the minimum on exit. No arguments, no input file. A cleaned-up rewrite of the script we ran; run once on the phone in this form. / Un tono corto por el altavoz inferior con niveles fijos que comprueba antes de reproducir; se niega si no cuadran. | anywhere; `sudo sh komodo-first-tone.sh` |
+
+The UCM profile and the WirePlumber rule we drafted are **not** published:
+they have not been tested. / El perfil UCM y la regla de WirePlumber que
+preparamos **no** se publican: no están probados.
 
 Both flashing scripts tell a variable the bootloader does not have ("Variable
 not found", "unknown variable"…) apart from any other `fastboot` error, which

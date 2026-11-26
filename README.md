@@ -1,27 +1,34 @@
 # Nura / postmarketOS on Google Pixel 9 Pro XL (komodo)
 
 > **Status: Nura (edge) with the Phosh UI is installed on `userdata` and boots
-> on our unit from slot B (Milestones 3 to 5, 2026-11-25): real KMS display
+> on our unit from slot B (Milestones 3 to 6, 2026-11-25): real KMS display
 > with brightness control, Mali-G715 GPU through Panthor and Mesa,
 > touchscreen, battery level readout, `reboot bootloader` to fastboot, SSH
 > over USB, **WiFi** (BCM4390; connects and passes traffic, throughput not
 > measured) and **Bluetooth** (same chip; scans, pairs and connects, but
 > with the chip's generic default address); firmware for both from your own
-> factory image. Not working yet: audio, microphone, modem, cameras, managed
-> USB-C; charging from a PC port barely keeps up; every boot still spends a
-> slot-B retry. Stock Android 17 stays on slot A, but its data was wiped.**
+> factory image. **Audio is experimental** (Milestone 6): one short test
+> tone on the bottom speaker at the lowest gain, and one microphone; no
+> desktop sound, and the amplifiers run without their protection firmware,
+> so a higher volume can damage a speaker. Not working yet: usable audio,
+> modem, cameras, managed USB-C; charging from a PC port barely keeps up;
+> every boot still spends a slot-B retry. Stock Android 17 stays on slot A,
+> but its data was wiped.**
 >
 > **Estado: Nura (edge) con la UI Phosh está instalado en `userdata` y arranca
-> en nuestra unidad desde el slot B (hitos 3 a 5, 2026-11-25): pantalla con
+> en nuestra unidad desde el slot B (hitos 3 a 6, 2026-11-25): pantalla con
 > KMS real y control de brillo, GPU Mali-G715 con Panthor y Mesa, táctil,
 > lectura del nivel de batería, `reboot bootloader` hasta fastboot, SSH por
 > USB, **WiFi** (BCM4390; conecta y pasa tráfico, velocidad sin medir) y
 > **Bluetooth** (mismo chip; escanea, empareja y conecta, pero con la
 > dirección por defecto, genérica, del chip); el firmware de ambos, de tu
-> propia imagen de fábrica. Aún no funcionan: audio, micrófono, módem,
-> cámaras ni USB-C gestionado; desde un puerto de PC casi no carga; cada
-> arranque sigue gastando un intento del slot B. Android 17 stock sigue en el
-> slot A, pero sus datos se borraron.**
+> propia imagen de fábrica. **El audio es experimental** (hito 6): un tono
+> de prueba corto por el altavoz inferior con la ganancia mínima y un
+> micrófono; sin sonido en el escritorio, y los amplificadores van sin su
+> firmware de protección, así que un volumen mayor puede dañar un altavoz.
+> Aún no funcionan: audio usable, módem, cámaras ni USB-C gestionado; desde
+> un puerto de PC casi no carga; cada arranque sigue gastando un intento del
+> slot B. Android 17 stock sigue en el slot A, pero sus datos se borraron.**
 
 [English](#english) · [Español](#español)
 
@@ -112,6 +119,24 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   (-22)` warnings; Bluetooth audio untestable (no audio yet); suspend,
   profiles (HID, A2DP, tethering) and 4 Mbaud untried.
   [docs/MILESTONE-5.md](docs/MILESTONE-5.md).
+- **Milestone 6 (2026-11-25): first audio, experimental.** All audio goes
+  through the AoC, Google's audio coprocessor, which Trusty and the GSA
+  start with its signed firmware; two Cirrus CS35L41 amplifiers drive the
+  speakers. Kernel package `pkgrel=6` (patches 0016–0021) installed: the
+  AoC comes online (firmware `16099865-polygon`, 94 services, from your own
+  factory image, not in this repository), both amplifiers are identified
+  and the sound card appears. A 2 s, 1 kHz tone at the lowest analog gain
+  was heard from the **bottom speaker**, and **microphone 0** picked it up.
+  **Warning: the amplifiers run without Cirrus' protection firmware and
+  without the factory calibration; raising the volume can damage a speaker
+  irreversibly.** Every audio module stays blacklisted and the levels at
+  the bring-up minimum. Patches 0017 and 0022 are Lef's pull requests #204
+  and #203 to the Omamobile kernel; the recipe here is at `pkgrel=7` (with
+  0022–0023, tested only by loading two modules by hand; not built or
+  booted yet). PipeWire ignores the card on purpose, so the desktop has no
+  sound; the top speaker/earpiece, stereo, usable volume, the other two
+  microphones, Bluetooth audio and calls are untried.
+  [docs/MILESTONE-6.md](docs/MILESTONE-6.md).
 - Android data: **lost** when `userdata` was flashed (expected). Slot A,
   bootloader, radio and `vbmeta` untouched.
 - Packages: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -120,7 +145,7 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
 - Known problems: the slot-B retry counter is spent on every boot and nothing
   marks the slot successful (after 3 boots the ABL falls back to slot A;
   `fastboot set_active b` beforehand; a marking tool ships as source only,
-  never used); no audio, microphone, modem or cameras; WiFi and Bluetooth
+  never used); audio only experimental (above), no modem or cameras; WiFi and Bluetooth
   limits as listed above (warnings `Set join_pref error (-52)` and a failed P2P interface in
   the log); no managed USB-C (a TCPC patch is
   prepared, not integrated); no verified button actions; power off untested;
@@ -131,10 +156,13 @@ fork. It is **not** affiliated with Nura, postmarketOS, Google or Omamobile.
   `degraded` for that boot.
 - Backup of the device's partitions: done from the Milestone 1 Linux, kept
   private.
-- Next, in this order: audio (speakers), microphone, a Bluetooth address of
-  our own, cameras (feasibility studied: likely weeks of work, quality far
-  below stock); the slot-B retry counter, buttons, USB-C/charging and WiFi
-  throughput stay open ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Next, in this order: audio (build and boot `pkgrel=7`, PipeWire with a
+  volume ceiling, the speaker-protection firmware and calibration, the top
+  speaker, the other microphones, Bluetooth audio); then a Bluetooth
+  address of our own, cameras (feasibility studied: likely weeks of work,
+  quality far below stock) and easy unlock; the slot-B retry counter,
+  buttons, USB-C/charging and WiFi throughput stay open
+  ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: previously listed as "BOE NT37290" (module `panel_boe_nt37290` loaded on
 an earlier stock build); a third-party bring-up names it `google,gs-km4`. On
@@ -160,7 +188,7 @@ column is what we verified ourselves. Full matrix in [docs/STATUS.md](docs/STATU
 | WiFi | **works** (BCM4390 through our `brcmfmac` patch 0013, not upstream; firmware from your own factory image); throughput not measured, P2P most likely broken, 6 GHz/WiFi 7/suspend untested | described but disabled (PR #276) |
 | Bluetooth | **works** (BCM4390 on the APM UART through our patches 0014–0015, not upstream; firmware from your own factory image); chip's generic default address, audio/profiles/suspend untested | unknown |
 | Battery / fuel gauge | **works**, read-only (percentage, design capacity) | unknown |
-| Audio | **not supported** | unknown |
+| Audio | **experimental**: bottom speaker at the bring-up minimum and microphone 0 only; no desktop sound; amplifiers without protection firmware (a higher volume can damage a speaker) | unknown |
 | Sensors | untested | unknown |
 | Modem / calls / SMS | **not supported** | unknown |
 | Cameras | **not supported** | unknown |
@@ -209,6 +237,12 @@ with appropriate scepticism.
 - The Pixel 9a (`tegu`) and Pixel 8 Pro Bluetooth work in the Omamobile
   kernel (`hci_bcm` with the `brcm,ble-dbo` latch), on which patches
   0014–0015 build.
+- The Pixel 9a and Pixel 8 Pro audio work in Omamobile: Lef's (`Somnius`)
+  pull requests [#204](https://github.com/derekross/linux-omamobile/pull/204)
+  and [#203](https://github.com/derekross/linux-omamobile/pull/203) of
+  `derekross/linux-omamobile`, carried unchanged as patches 0017 and 0022;
+  the tegu sound card of PR #193, base of patch 0021; and Omamobile's AoC
+  start scripts (MIT), adapted as `scripts/audio/komodo-aoc-start`.
 
 ### Following the project
 
@@ -313,6 +347,26 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   audio por Bluetooth imposible de probar (aún no hay audio); suspensión,
   perfiles (HID, A2DP, compartir conexión) y 4 Mbaud sin probar.
   [docs/MILESTONE-5.md](docs/MILESTONE-5.md).
+- **Hito 6 (2026-11-25): primer audio, experimental.** Todo el audio pasa
+  por el AoC, el coprocesador de audio de Google, que Trusty y la GSA
+  arrancan con su firmware firmado; dos amplificadores Cirrus CS35L41
+  mueven los altavoces. Instalado el paquete del kernel `pkgrel=6`
+  (parches 0016–0021): el AoC arranca (firmware `16099865-polygon`, 94
+  servicios, de tu propia imagen de fábrica, no está en este repositorio),
+  los dos amplificadores se identifican y aparece la tarjeta de sonido. Un
+  tono de 1 kHz de 2 s con la ganancia analógica mínima se oyó por el
+  **altavoz inferior** y el **micrófono 0** lo captó. **Aviso: los
+  amplificadores funcionan sin el firmware de protección de Cirrus y sin la
+  calibración de fábrica; subir el volumen puede dañar un altavoz de forma
+  irreversible.** Todos los módulos de audio siguen en lista negra y los
+  niveles, en el mínimo de puesta en marcha. Los parches 0017 y 0022 son
+  los pull requests #204 y #203 de Lef al kernel de Omamobile; la receta de
+  aquí está en `pkgrel=7` (con 0022–0023, probados solo cargando dos
+  módulos a mano; sin compilar ni arrancar aún). PipeWire ignora la tarjeta
+  a propósito, así que el escritorio no tiene sonido; sin probar el altavoz
+  superior/auricular, estéreo, volumen de uso, los otros dos micrófonos,
+  audio por Bluetooth ni llamadas.
+  [docs/MILESTONE-6.md](docs/MILESTONE-6.md).
 - Datos de Android: **perdidos** al flashear `userdata` (esperado). Slot A,
   bootloader, radio y `vbmeta`, sin tocar.
 - Paquetes: [`pmaports/device/testing/`](pmaports/device/testing/)
@@ -321,7 +375,8 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
 - Problemas conocidos: cada arranque gasta un intento del slot B y nada marca
   el slot como correcto (tras 3 arranques el ABL vuelve al slot A; hay que
   hacer antes `fastboot set_active b`; la herramienta para marcarlo va solo
-  como fuente, sin usar); sin audio, micrófono, módem ni cámaras; WiFi y
+  como fuente, sin usar); audio solo experimental (arriba), sin módem ni
+  cámaras; WiFi y
   Bluetooth con los límites de arriba (avisos `Set join_pref error (-52)` y fallo de la
   interfaz P2P en el log); sin USB-C gestionado
   (parche del TCPC preparado, sin integrar); botones sin acción comprobada;
@@ -332,11 +387,13 @@ soporte Tensor. **No** está afiliado a Nura, postmarketOS, Google ni Omamobile.
   deja el sistema `degraded` en ese arranque.
 - Copia de seguridad de las particiones: hecha desde el Linux del hito 1,
   guardada en privado.
-- Siguiente, en este orden: audio (altavoces), micrófono, dirección
-  Bluetooth propia y cámaras (viabilidad estudiada: probablemente semanas
-  de trabajo, calidad muy inferior a la de stock); siguen abiertos el
-  contador del slot B, los botones, USB-C/carga y el rendimiento del WiFi
-  ([docs/ROADMAP.md](docs/ROADMAP.md)).
+- Siguiente, en este orden: audio (compilar y arrancar el `pkgrel=7`,
+  PipeWire con techo de volumen, firmware de protección y calibración,
+  altavoz superior, los otros micrófonos, audio por Bluetooth); después,
+  dirección Bluetooth propia, cámaras (viabilidad estudiada: probablemente
+  semanas de trabajo, calidad muy inferior a la de stock) y desbloqueo
+  cómodo; siguen abiertos el contador del slot B, los botones, USB-C/carga
+  y el rendimiento del WiFi ([docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Panel: antes se indicaba "BOE NT37290" (módulo `panel_boe_nt37290` cargado en
 un build stock anterior); un bring-up de terceros lo nombra `google,gs-km4`. En
@@ -363,8 +420,11 @@ imagen de fábrica; velocidad sin medir, P2P casi seguro roto, 6 GHz, WiFi 7
 y suspensión sin probar); Bluetooth **funciona** (BCM4390 por la UART del
 APM con nuestros parches 0014–0015, sin enviar a upstream; firmware de tu
 propia imagen de fábrica; dirección por defecto genérica del chip; audio,
-perfiles y suspensión sin probar); USB-C gestionado, audio, módem y
-cámaras **sin soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
+perfiles y suspensión sin probar); audio **experimental** (solo el
+altavoz inferior al mínimo de puesta en marcha y el micrófono 0, sin sonido
+en el escritorio; amplificadores sin firmware de protección, un volumen
+mayor puede dañar un altavoz); USB-C gestionado, módem y cámaras **sin
+soporte**; el resto, **sin probar**. Lo marcado como "reported" lo reporta un
 tercero (autor del PR #276 del kernel de Omamobile) y no lo hemos reproducido
 salvo donde se indica. Matriz completa en [docs/STATUS.md](docs/STATUS.md).
 
@@ -397,8 +457,13 @@ comunidad de Nura (postmarketOS); y el driver GPL-2.0 bcmdhd de Google para el
 BCM4390, referencia del parche 0013, que se apoya en el soporte del
 BCM4398/BCM4383 del `brcmfmac` del kernel de Omamobile; y el trabajo de
 Bluetooth del Pixel 9a (`tegu`) y del Pixel 8 Pro en el kernel de Omamobile
-(`hci_bcm` con el biestable `brcm,ble-dbo`), base de los parches 0014–0015.
-Enlaces en la sección inglesa.
+(`hci_bcm` con el biestable `brcm,ble-dbo`), base de los parches 0014–0015;
+y el trabajo de audio del Pixel 9a y del Pixel 8 Pro en Omamobile: los pull
+requests #204 y #203 de Lef (`Somnius`) a `derekross/linux-omamobile`, que
+van tal cual como parches 0017 y 0022, la tarjeta de tegu del PR #193, base
+del parche 0021, y los scripts de arranque del AoC de Omamobile (MIT),
+adaptados en `scripts/audio/komodo-aoc-start`. Enlaces en la sección
+inglesa.
 
 ### Cómo seguir el proyecto
 

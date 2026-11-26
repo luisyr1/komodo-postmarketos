@@ -1,0 +1,70 @@
+From 9578eac46a93a6f7579c1e181f549d35bba5adf9 Mon Sep 17 00:00:00 2001
+From: Lef <me@lefteros.com>
+Date: Thu, 5 Nov 2026 11:50:19 +0000
+Subject: [PATCH 17/20] spi: s3c64xx: leave the native chip select to auto mode
+ for GPIO CS devices
+
+On Tensor G3 (zuma, manual_native_cs) the SPI core calls set_cs for
+every message, also for a device on a GPIO chip select, and the driver
+then asserts the native nSS pad (CS_REG = 0). On the Pixel 8 Pro the
+two CS35L41 amplifiers share one controller: one is on the native CS0,
+the other on a GPIO chip select. The native pad was selected at the
+same time as the GPIO one, so both drove MISO and the second amplifier
+read back zeros after its first read.
+
+For a device on a GPIO chip select put the controller's CS register in
+auto mode with the signal inactive, which is what the stock kernel's
+chip-select-mode 2 does, and keep the manual handling for devices on
+the native line. Both amplifiers probe and play with this.
+
+The new code is only reached with manual_native_cs set, which only the
+zuma and zumapro port configs have: set_native_cs is installed as the
+host's set_cs only then, and the new branch in set_cs tests the flag.
+gs101 and the other configs are not touched.
+
+Tested on a Pixel 8 Pro. Not tested on a Pixel 7 Pro.
+
+Signed-off-by: Lef <me@lefteros.com>
+---
+ drivers/spi/spi-s3c64xx.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/spi/spi-s3c64xx.c b/drivers/spi/spi-s3c64xx.c
+index 34c7268..4d5b7ae 100644
+--- a/drivers/spi/spi-s3c64xx.c
++++ b/drivers/spi/spi-s3c64xx.c
+@@ -368,6 +368,17 @@ static void s3c64xx_spi_set_cs(struct spi_device *spi, bool enable)
+ 	if (sdd->cntrlr_info->no_cs)
+ 		return;
+ 
++	/*
++	 * A device on a GPIO chip select leaves the native nSS to the controller's
++	 * auto mode (chip-select-mode 2 on the stock kernel), so it does not drive
++	 * the pad another device shares.
++	 */
++	if (sdd->port_conf->manual_native_cs && spi_is_csgpiod(spi)) {
++		writel(S3C64XX_SPI_CS_AUTO | S3C64XX_SPI_CS_NSC_CNT_2 | S3C64XX_SPI_CS_SIG_INACT,
++		       sdd->regs + S3C64XX_SPI_CS_REG);
++		return;
++	}
++
+ 	if (sdd->port_conf->manual_native_cs && !spi_is_csgpiod(spi)) {
+ 		bool high = true;
+ 
+@@ -406,7 +417,12 @@ static void s3c64xx_spi_set_native_cs(struct spi_device *spi, bool high)
+ 	struct s3c64xx_spi_driver_data *sdd =
+ 					spi_controller_get_devdata(spi->controller);
+ 
+-	if (!sdd->cntrlr_info->no_cs)
++	if (sdd->cntrlr_info->no_cs)
++		return;
++	if (spi_is_csgpiod(spi))
++		writel(S3C64XX_SPI_CS_AUTO | S3C64XX_SPI_CS_NSC_CNT_2 | S3C64XX_SPI_CS_SIG_INACT,
++		       sdd->regs + S3C64XX_SPI_CS_REG);
++	else
+ 		writel(high ? S3C64XX_SPI_CS_SIG_INACT : 0,
+ 		       sdd->regs + S3C64XX_SPI_CS_REG);
+ }
+-- 
+2.56.0
+

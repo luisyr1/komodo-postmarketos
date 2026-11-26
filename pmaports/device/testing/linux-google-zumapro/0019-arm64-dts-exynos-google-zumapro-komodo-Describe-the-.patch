@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 22:00:00 +0000
+Subject: [PATCH 19/20] arm64: dts: exynos: google: zumapro-komodo: Describe
+ the AoC
+
+Enable Trusty, the GSA, the AoC's three mailboxes and the AoC itself
+with komodo's stock board config (dtbo fragment 104: "KM4", id
+0x40802, rev 0x10000; fragment 121: GNSS type 2) and its sensor rails
+(fragment 7: LDO7S and LDO5S of the S2MPG15), as zumapro-tegu does.
+
+The firmware is the owner's vendor/firmware/aoc.bin under the name
+aoc-komodo.bin; it is never shipped. The AoC is not started by this
+change: Trusty, the GSA and the AoC drivers are modules, blacklisted on
+komodo, that a start script loads in order before it writes the
+firmware name to the AoC's sysfs node.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts | 57 +++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 153917b..2c55f33 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -283,6 +283,63 @@
+ 			};
+ 		};
+ 	};
++
++	/*
++	 * The AoC's sensor rails, stock dtbo fragment 7 (sensor_1v8 = LDO7S
++	 * "L7S_SENSORS", sensor_3v3 = LDO5S "L5S_PROX"), as on tegu.
++	 */
++	pmic-2 {
++		compatible = "samsung,s2mpg15-pmic";
++
++		regulators {
++			komodo_sensor_3v3: ldo5s {
++				regulator-name = "sensor-3v3";
++			};
++
++			komodo_sensor_1v8: ldo7s {
++				regulator-name = "sensor-1v8";
++			};
++		};
++	};
++};
++
++/*
++ * The AoC (Always-on Compute), the audio and sensor DSP. Its firmware is
++ * the owner's own signed vendor/firmware/aoc.bin, installed as
++ * aoc-komodo.bin and authenticated by the GSA; Trusty's hwmgr.aoc starts
++ * it. Board config "KM4", id 0x40802, rev 0x10000 and GNSS type 2 are
++ * stock dtbo fragments 104 and 121. Nothing here starts the AoC: its
++ * drivers are modules that only the start script loads, in order.
++ */
++&aoc {
++	memory-region = <&aoc_reserved>;
++	firmware-name = "aoc-komodo.bin";
++	google,board-id = <0x40802>;
++	google,board-rev = <0x10000>;
++	google,gnss-type = <2>;
++	sensor-1v8-supply = <&komodo_sensor_1v8>;
++	sensor-3v3-supply = <&komodo_sensor_3v3>;
++	status = "okay";
++};
++
++&aoc_mbox_a32 {
++	status = "okay";
++};
++
++&aoc_mbox_f1 {
++	status = "okay";
++};
++
++&aoc_mbox_p6 {
++	status = "okay";
++};
++
++&gsa {
++	status = "okay";
++};
++
++&trusty {
++	status = "okay";
+ };
+ 
+ &ap2apm_mailbox {
+-- 
+2.56.0
+

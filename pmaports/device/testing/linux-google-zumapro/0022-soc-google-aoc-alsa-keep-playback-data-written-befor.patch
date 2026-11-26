@@ -1,0 +1,183 @@
+From 0debba5f8f418190c23d9addee8860204869fae4 Mon Sep 17 00:00:00 2001
+From: Lef <me@lefteros.com>
+Date: Fri, 6 Nov 2026 05:37:31 +0000
+Subject: [PATCH] soc: google: aoc: alsa: keep playback data written before
+ start (zuma)
+
+On the Pixel 8 Pro (zuma) the AoC deep-buffer entrypoint throws away
+what was written to the ring before the stream was started: its read
+index jumps to the write index and no interrupt is raised for it. A
+client that pre-fills the buffer before the start, like PipeWire, then
+never sees the buffer drain, stops writing, and the stream stalls.
+
+For zuma only (the aoc node is compatible with google,zuma-aoc):
+
+ - keep a copy of the playback data written before the start and write
+   it again once the AoC has started, counting from the new read index
+ - report the PCM pointer from the live AoC read index for a running
+   interrupt-driven playback stream
+
+On gs201 the new flag stays false, so neither path is taken and the
+pointer and write code behave as before. The only change in the gs201
+objects is the larger struct aoc_alsa_stream (24 bytes, appended at the
+end, so no existing offset moves) and the allocation size that follows
+from it.
+
+Tested on a Pixel 8 Pro: speaker playback from PipeWire and Chromium
+works. Not tested on a Pixel 7 Pro.
+
+Signed-off-by: Lef <me@lefteros.com>
+---
+ drivers/soc/google/aoc/alsa/aoc_alsa.h      |  6 +++
+ drivers/soc/google/aoc/alsa/aoc_alsa_card.c |  5 ++
+ drivers/soc/google/aoc/alsa/aoc_alsa_hw.c   |  6 +++
+ drivers/soc/google/aoc/alsa/aoc_alsa_pcm.c  | 58 +++++++++++++++++++++
+ 4 files changed, 75 insertions(+)
+
+diff --git a/drivers/soc/google/aoc/alsa/aoc_alsa.h b/drivers/soc/google/aoc/alsa/aoc_alsa.h
+index 12f7c302b6..7c9d625ec4 100644
+--- a/drivers/soc/google/aoc/alsa/aoc_alsa.h
++++ b/drivers/soc/google/aoc/alsa/aoc_alsa.h
+@@ -344,6 +344,8 @@ struct aoc_chip {
+ #if !(IS_ENABLED(CONFIG_SOC_GS101) || IS_ENABLED(CONFIG_SOC_GS201))
+ 	struct CMD_AUDIO_OUTPUT_DECODER_CFG_SPEED decoder_cfg_speed;
+ #endif
++	/* zuma AoC: the deep buffer drops pre-start data (from the aoc node's compatible) */
++	bool deep_buffer_drops_prefill;
+ };
+ 
+ struct aoc_alsa_stream {
+@@ -398,6 +400,10 @@ struct aoc_alsa_stream {
+ 	struct workqueue_struct *incall_period_wq;
+ 	struct workqueue_struct *voip_period_wq;
+ 	struct work_struct pcm_period_work;
++	/* zuma only: data written before the start, written again once the AoC has started */
++	void *prefill;
++	size_t prefill_len;
++	size_t prefill_cap;
+ };
+ 
+ bool aoc_support_interrupt_idx(int idx);
+diff --git a/drivers/soc/google/aoc/alsa/aoc_alsa_card.c b/drivers/soc/google/aoc/alsa/aoc_alsa_card.c
+index 16ee45d974..65d50c5984 100644
+--- a/drivers/soc/google/aoc/alsa/aoc_alsa_card.c
++++ b/drivers/soc/google/aoc/alsa/aoc_alsa_card.c
+@@ -2068,6 +2068,11 @@ static int snd_aoc_init(struct aoc_chip *chip)
+ 	chip->chre_supported = of_property_read_bool(aoc_node, "chre-supported");
+ 	chip->skip_mmap_offload = of_property_read_bool(aoc_node, "skip-mmap-offload");
+ 
++	of_node_put(aoc_node);
++
++	/* Only the zuma AoC firmware drops the pre-start playback data; gs201 is left as it was. */
++	aoc_node = of_find_compatible_node(NULL, NULL, "google,zuma-aoc");
++	chip->deep_buffer_drops_prefill = !!aoc_node;
+ 	of_node_put(aoc_node);
+ 	return 0;
+ }
+diff --git a/drivers/soc/google/aoc/alsa/aoc_alsa_hw.c b/drivers/soc/google/aoc/alsa/aoc_alsa_hw.c
+index 82097dfd1f..f156e04599 100644
+--- a/drivers/soc/google/aoc/alsa/aoc_alsa_hw.c
++++ b/drivers/soc/google/aoc/alsa/aoc_alsa_hw.c
+@@ -3136,6 +3136,12 @@ int aoc_audio_write(struct aoc_alsa_stream *alsa_stream, struct iov_iter *src,
+ 			goto out;
+ 		}
+ 
++		if (alsa_stream->prefill && !alsa_stream->running &&
++		    alsa_stream->prefill_len + block_size <= alsa_stream->prefill_cap) {
++			memcpy(alsa_stream->prefill + alsa_stream->prefill_len, tmp, block_size);
++			alsa_stream->prefill_len += block_size;
++		}
++
+ 		err = aoc_service_write(dev, tmp, block_size, NONBLOCKING);
+ 		if (err != block_size) {
+ 			pr_err("ERR: unwritten data - %d bytes\n", block_size - err);
+diff --git a/drivers/soc/google/aoc/alsa/aoc_alsa_pcm.c b/drivers/soc/google/aoc/alsa/aoc_alsa_pcm.c
+index c5e3d2c3a7..2e60507ae0 100644
+--- a/drivers/soc/google/aoc/alsa/aoc_alsa_pcm.c
++++ b/drivers/soc/google/aoc/alsa/aoc_alsa_pcm.c
+@@ -348,6 +348,8 @@ static void snd_aoc_pcm_free(struct snd_pcm_runtime *runtime)
+ 	pr_debug("Freeing up alsa stream here ..\n");
+ 	pr_debug("%s:", __func__);
+ 
++	if (runtime->private_data)
++		kfree(((struct aoc_alsa_stream *)runtime->private_data)->prefill);
+ 	kfree(runtime->private_data);
+ 	runtime->private_data = NULL;
+ }
+@@ -668,6 +670,19 @@ static int snd_aoc_pcm_prepare(struct snd_soc_component *component,
+ 	alsa_stream->n_overflow = 0;
+ 	alsa_stream->prev_buffer_cnt = 0;
+ 
++	/* zuma only: keep the pre-start data to write it again after the AoC has started */
++	kfree(alsa_stream->prefill);
++	alsa_stream->prefill = NULL;
++	alsa_stream->prefill_len = 0;
++	alsa_stream->prefill_cap = 0;
++	if (alsa_stream->chip->deep_buffer_drops_prefill &&
++	    substream->stream == SNDRV_PCM_STREAM_PLAYBACK && !alsa_stream->cstream &&
++	    runtime->access != SNDRV_PCM_ACCESS_MMAP_INTERLEAVED) {
++		alsa_stream->prefill = kmalloc(alsa_stream->buffer_size, GFP_KERNEL);
++		if (alsa_stream->prefill)
++			alsa_stream->prefill_cap = alsa_stream->buffer_size;
++	}
++
+ 	pr_debug("pcm prepare: hw_ptr_base = %lu\n", alsa_stream->hw_ptr_base);
+ 
+ 	pr_debug("buffer_size=%d, period_size=%d pos=%d frame_bits=%d\n", alsa_stream->buffer_size,
+@@ -706,6 +721,28 @@ static int snd_aoc_pcm_trigger(struct snd_soc_component *component,
+ 
+ 			err = aoc_audio_start(alsa_stream);
+ 			aoc_pcm_ring_log(alsa_stream, "started");
++			if (err == 0 && alsa_stream->prefill && alsa_stream->prefill_len &&
++			    alsa_stream->dev) {
++				/*
++				 * The AoC deep-buffer entrypoint throws away what was written
++				 * before the start (read index := write index). Count from the
++				 * new read index and write the pre-start data again.
++				 */
++				unsigned long rp =
++					aoc_ring_bytes_read(alsa_stream->dev->service, AOC_DOWN);
++
++				alsa_stream->hw_ptr_base = rp;
++				alsa_stream->prev_consumed = rp;
++				alsa_stream->pos = 0;
++				alsa_stream->prev_pos = 0;
++				alsa_stream->pos_delta = 0;
++				alsa_stream->n_overflow = 0;
++				alsa_stream->prev_buffer_cnt = 0;
++				aoc_service_write(alsa_stream->dev, alsa_stream->prefill,
++						  alsa_stream->prefill_len, NONBLOCKING);
++				aoc_pcm_ring_log(alsa_stream, "refilled");
++				alsa_stream->prefill_len = 0;
++			}
+ 			if (err == 0) {
+ 				alsa_stream->running = 1;
+ 				alsa_stream->draining = 1;
+@@ -796,6 +833,27 @@ static snd_pcm_uframes_t snd_aoc_pcm_pointer(struct snd_soc_component *component
+ 
+ 	pointer = bytes_to_frames(substream->runtime, alsa_stream->pos);
+ 
++	/*
++	 * zuma: the AoC deep-buffer entrypoint drops what was written before the
++	 * stream started (its read index jumps to the write index) and raises no
++	 * interrupt for it, so a client that pre-fills (PipeWire) never sees the
++	 * buffer drain and stops writing. Report the position from the live read
++	 * index for an interrupt-driven playback stream that is running.
++	 */
++	if (alsa_stream->chip->deep_buffer_drops_prefill && alsa_stream->isr_type == INTR &&
++	    alsa_stream->running && alsa_stream->dev &&
++	    substream->stream == SNDRV_PCM_STREAM_PLAYBACK && alsa_stream->buffer_size) {
++		unsigned long consumed = aoc_ring_bytes_read(alsa_stream->dev->service, AOC_DOWN);
++		unsigned long live;
++
++		if (unlikely(alsa_stream->n_overflow))
++			live = (consumed + 0x100000000UL * alsa_stream->n_overflow -
++				alsa_stream->hw_ptr_base) % alsa_stream->buffer_size;
++		else
++			live = (consumed - alsa_stream->hw_ptr_base) % alsa_stream->buffer_size;
++		pointer = bytes_to_frames(substream->runtime, live);
++	}
++
+ 	pr_debug("pcm pointer  = %d\n", pointer);
+ 	return pointer;
+ }

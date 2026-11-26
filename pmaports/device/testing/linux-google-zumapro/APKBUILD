@@ -9,7 +9,7 @@
 maintainer="komodo port <komodo@example.invalid>"
 pkgname=linux-google-zumapro
 pkgver=7.3_rc6
-pkgrel=4
+pkgrel=7
 pkgdesc="Google Tensor G4 (zumapro, Pixel 9 Pro XL) close-to-mainline kernel"
 arch="aarch64"
 _carch="arm64"
@@ -67,6 +67,22 @@ makedepends="
 # hci_uart autoloads from the node at boot. brcm/BCM.<board>.hcd is the
 # owner's own (BCM_200.hcd from vendor.img), never packaged here; without it
 # hci0 should come up on the chip's ROM only (not tried).
+# Audio (r6-r7, experimental): 0016-0018 add HSI0's USI1 clocks and spi19
+# (0017 is derekross/linux-omamobile#204 by Lef, unchanged: native chip
+# select for the GPIO-CS amplifier), 0019 enables Trusty, the GSA, the
+# mailboxes and the AoC, 0020 the two CS35L41 (boost peak limited to
+# 2.5 A) and 0021 the AoC sound card. 0022 is derekross/linux-omamobile#203
+# by Lef, unchanged (EP6 drops data written before START), and 0023 applies
+# it to google,zumapro-aoc too. r6 (0016-0021) tested on the phone: both
+# amplifiers identified, AoC online, card up, and a short 1 kHz tone at the
+# minimum analog gain on the bottom speaker (with aplay -R), heard. 0022-0023
+# were tested by loading the two rebuilt modules by hand (default aplay
+# plays; microphone 0 picked the tone up); r7 itself has not been built or
+# booted yet. The amplifiers run
+# without Cirrus' protection firmware or the factory calibration: every
+# audio module stays blacklisted on the phone (komodo-audio.conf) and the
+# levels must stay at the bring-up minimum, see docs/MILESTONE-6.md. The
+# AoC firmware (aoc.bin) is the owner's own, never packaged here.
 _commit="ffd33b7ddc716eb3568fff9f8d337a4032d109eb"
 _config="config-$_flavor.$arch"
 source="
@@ -87,6 +103,14 @@ source="
 	0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
 	0014-arm64-dts-komodo-Bluetooth-BCM4390-on-the-APM-UART.patch
 	0015-Bluetooth-hci_bcm-add-the-BCM4390-Pixel-9-Pro-XL.patch
+	0016-clk-samsung-zumapro-Add-the-HSI0-USI1-clocks.patch
+	0017-spi-s3c64xx-leave-the-native-chip-select-to-auto-mod.patch
+	0018-arm64-dts-exynos-google-zumapro-Add-HSI0-s-USI1-and-.patch
+	0019-arm64-dts-exynos-google-zumapro-komodo-Describe-the-.patch
+	0020-arm64-dts-exynos-google-zumapro-komodo-Add-the-speak.patch
+	0021-arm64-dts-exynos-google-zumapro-komodo-Add-the-AoC-s.patch
+	0022-soc-google-aoc-alsa-keep-playback-data-written-befor.patch
+	0023-soc-google-aoc-alsa-drop-prefill-on-zumapro-too.patch
 "
 builddir="$srcdir/linux-omamobile-$_commit"
 
@@ -127,7 +151,9 @@ package() {
 
 # Tarball checksum computed with `pmbootstrap checksum linux-google-zumapro`
 # on 2026-11-25. The patches' Date: headers were normalised to UTC before
-# publishing (content unchanged), hence their checksums.
+# publishing (content unchanged), hence their checksums. 0017 and 0022 keep
+# the author, message and commit id of the public pull requests they come
+# from (derekross/linux-omamobile #204 and #203), with the date in UTC.
 sha512sums="
 c2e442abba3211fdd29c0a3b0851270c7b5fd2438f98226ad206c7d331c378d032ffb0187378605258754ba9af83775495439c1a3b13ee66f1701ec55f9c1d76  linux-google-zumapro-ffd33b7ddc716eb3568fff9f8d337a4032d109eb.tar.gz
 1b5f63d8ed9a1e49c7a3750ac9b1e80a82abc23cee84010b8799c1bb826b66e824753ed7ff87da3ca01394f5505e2d2c54a0203e87b22c35a4efceaa8fe9b26d  config-google-zumapro.aarch64
@@ -146,4 +172,12 @@ ce33dae79ef81c7e2102f59915b61567065b05aaa095be1142cb4516dbf4abe414ec676a6b3dace5
 9c00e942426f27c2c6b72874724af42e8f47b7eddc04bafea15fea3610a0dc9814b8d51cd75d7aae7a886012558e8f3e4233f1e96600a7b58673abe29872e8da  0013-wifi-brcmfmac-add-the-BCM4390-Pixel-9-Pro-XL.patch
 366419d9062fc95ed6e7c7741f5b90fff8535ebb73394a54c2c049724454ba830f6c9c5651836e0110bb092364f2f2a0fcd69ae3470835ac80db4f743fba7543  0014-arm64-dts-komodo-Bluetooth-BCM4390-on-the-APM-UART.patch
 98df80bd321bd1172941fbb58bde00f96920958b1d3ebf8cbf4f696e748858e1747f8c6f9eaed02786aad35d3ee343b64764ef408d425119bb1c8c236acb24b3  0015-Bluetooth-hci_bcm-add-the-BCM4390-Pixel-9-Pro-XL.patch
+c8e4801e21f50b932155ced228eb69732aeebdbfcd09e534ea70d0335e71c765a4701191c1abb2d22a9022ec3cf892b7a6b3e396d375922fdde27977120fb51b  0016-clk-samsung-zumapro-Add-the-HSI0-USI1-clocks.patch
+8b52cd1c8df6adaa7d470594b3ce999005a78122a787bfdd685f1bbc73e245666ccec2ca3b83402e0c3a1d46cd1518562604085f836b24fd3967ee5040db1abf  0017-spi-s3c64xx-leave-the-native-chip-select-to-auto-mod.patch
+ff8e21fa575316e75c68c030ce017fe491c3f4dab83247dd3588c915af0d87848e7fcc4d8de881aca823835b1ffe1c951538e2e6e457d12e48201ffc5a34b3be  0018-arm64-dts-exynos-google-zumapro-Add-HSI0-s-USI1-and-.patch
+af12e3e980753abeaf7c8a2b89360066c05188a056300f6d3b826dc62414351c8e24f091a4a9ec2aae785df184bcd6a1fa7571bdab4133605339a0c6cf006bc7  0019-arm64-dts-exynos-google-zumapro-komodo-Describe-the-.patch
+6f23c35e23157e266b35763bbc7caccf2684a708bf1d75dcb7bfa065dbdf3a87933c4cfb596d2043e74f239990d20ed8b5be593ee07bb1607045d9b550be8c07  0020-arm64-dts-exynos-google-zumapro-komodo-Add-the-speak.patch
+e9667d733e2dda6751fde2762cd90a24f072c5a79a92b9b716ad4f8cb00b0079edd4059691cf2a06bdbc36221fadc1c751b74d873950f8cd0883d63e4478c034  0021-arm64-dts-exynos-google-zumapro-komodo-Add-the-AoC-s.patch
+f3e9b80b9c5e087c1008e1f08f21b4cb330a4947eb58edd043ff36d963bafbaf585b059c7c169883b0af104528a0ae5fc60bcf83757099db017594ef627b05a2  0022-soc-google-aoc-alsa-keep-playback-data-written-befor.patch
+1b03fafc36ebdb24d9bc7999e6aba37f1842ee5e1c4da3456ce886e833ff6b494ace48d4caa4dad76132c656474511b2c41f97b2de9353c0d47dd0710aa63b0d  0023-soc-google-aoc-alsa-drop-prefill-on-zumapro-too.patch
 "

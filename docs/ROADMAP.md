@@ -9,26 +9,52 @@ comprometidas.
 
 ## Next, in this order / Lo siguiente, en este orden
 
-As of 2026-11-25, after Milestone 5 (Bluetooth). / A fecha 2026-11-25, tras
-el hito 5 (Bluetooth).
+As of 2026-11-25, after Milestone 6 (first audio, experimental). / A fecha
+2026-11-25, tras el hito 6 (primer audio, experimental).
 
-1. **Audio: speakers** (Phase 6). Not investigated yet. / **Audio:
-   altavoces** (fase 6). Sin investigar.
-2. **Microphone** (Phase 6). Not investigated yet. / **Micrófono** (fase 6).
-   Sin investigar.
-3. **A Bluetooth address of our own** (Phase 5): today the controller uses
+1. **Audio, in this order** (Phase 6). / **Audio, en este orden** (fase 6).
+   1. Build and boot `pkgrel=7` (0022–0023 as a package) and check that a
+      default `aplay` plays to the end. / Compilar y arrancar el `pkgrel=7`
+      (0022–0023 en el paquete) y comprobar que un `aplay` por defecto llega
+      al final.
+   2. Connect PipeWire to the card with a WirePlumber rule that puts a
+      volume ceiling on it, and only then lift the udev rule that hides the
+      card. / Conectar PipeWire a la tarjeta con una regla de WirePlumber
+      con techo de volumen, y solo entonces quitar la regla udev que la
+      oculta.
+   3. **Speaker-protection firmware and calibration**: Cirrus' protection
+      firmware on both amplifiers, the unit's own factory calibration read
+      read-only, health monitoring and ceilings measured for `komodo`.
+      **Required before any daily-use volume.** / **Firmware de protección
+      y calibración**: el firmware de protección de Cirrus en los dos
+      amplificadores, la calibración de fábrica de la unidad leída en solo
+      lectura, vigilancia de su estado y techos medidos para `komodo`.
+      **Imprescindible antes de cualquier volumen de uso diario.**
+   4. Top speaker (also the earpiece), then stereo. / Altavoz superior
+      (también auricular) y después estéreo.
+   5. The other two microphones, and `dmic_power_list` in the DT. / Los
+      otros dos micrófonos, y `dmic_power_list` en el DT.
+   6. Bluetooth audio: A2DP first, then headsets (HFP). / Audio por
+      Bluetooth: primero A2DP, luego manos libres (HFP).
+2. **A Bluetooth address of our own** (Phase 5): today the controller uses
    the chip's generic default address. / **Dirección Bluetooth propia**
    (fase 5): hoy el controlador usa la dirección por defecto, genérica, del
    chip.
-4. **Cameras** (Phase 7): feasibility studied, plan below; no code yet. /
+3. **Cameras** (Phase 7): feasibility studied, plan below; no code yet. /
    **Cámaras** (fase 7): viabilidad estudiada, plan abajo; aún sin código.
-5. **Easy unlock** (Phase 7): fingerprint, face and Bluetooth proximity, all
-   three in the long run. Not investigated yet; on Android the fingerprint
-   reader is driven from the secure world, and face unlock depends on the
-   front camera. / **Desbloqueo cómodo** (fase 7): huella, cara y
-   proximidad por Bluetooth, las tres a la larga. Sin investigar todavía;
-   en Android el lector de huella se maneja desde el mundo seguro, y la
-   cara depende de la cámara frontal.
+4. **Easy unlock** (Phase 7): fingerprint, face and Bluetooth proximity, all
+   three in the long run; face unlock depends on the front camera. The
+   fingerprint reader is Qualcomm's ultrasonic sensor, driven from the
+   secure world; the realistic path is the factory HAL talking to Trusty
+   (as Omamobile does on the Pixel 9a), and Trusty already answers in our
+   kernel since Milestone 6. There is an irreversible step (RPMB) on that
+   path, not taken. Not started. / **Desbloqueo cómodo** (fase 7): huella,
+   cara y proximidad por Bluetooth, las tres a la larga; la cara depende de
+   la cámara frontal. El lector de huella es el ultrasónico de Qualcomm,
+   manejado desde el mundo seguro; la vía realista es el HAL de fábrica
+   hablando con Trusty (como hace Omamobile en el Pixel 9a), y Trusty ya
+   responde en nuestro kernel desde el hito 6. En ese camino hay un paso
+   irreversible (RPMB) que no se ha dado. Sin empezar.
 
 The open items of Phases 2b–5 (slot-B retry counter, buttons, charging,
 WiFi throughput…) stay open alongside. / Los pendientes de las fases 2b–5
@@ -172,6 +198,9 @@ sigue siendo lo principal pendiente.
 - [x] Bluetooth (Phase 5): **done in Milestone 5** (2026-11-25), with the
   limits listed there. / Bluetooth (fase 5): **hecho en el hito 5**, con sus
   límites.
+- [ ] Audio (Phase 6): **first sound in Milestone 6** (2026-11-25), still
+  experimental and not usable from the desktop. / Audio (fase 6): **primer
+  sonido en el hito 6**, aún experimental y sin uso desde el escritorio.
 - [ ] `systemd-firstboot.service` fails on the first boot of every new
   install (no input console) and leaves that boot `degraded`. / Falla en el
   primer arranque de cada instalación nueva y deja ese arranque `degraded`.
@@ -264,8 +293,8 @@ se pierde la raíz Linux.
     unidad o fijar una estable en cada arranque.
   - [ ] Understand the seven `Failed to read codec capabilities (-22)`. /
     Entender los avisos de capacidades de códec.
-  - [ ] Try profiles: HID (keyboard, mouse), A2DP once there is audio, PAN
-    tethering, file transfer. / Probar perfiles: HID, A2DP cuando haya audio,
+  - [ ] Try profiles: HID (keyboard, mouse), A2DP (see Phase 6), PAN
+    tethering, file transfer. / Probar perfiles: HID, A2DP (ver fase 6),
     compartir conexión, ficheros.
   - [ ] Suspend and long idle (runtime PM over the wake lines), and the
     stock 4 Mbaud link speed. / Suspensión y reposo prolongado, y los
@@ -273,14 +302,45 @@ se pierde la raíz Linux.
 
 ## Phase 6 — Audio and sensors / Audio y sensores
 
-Not investigated yet: nothing below has been looked at on our unit. / Sin
-investigar: nada de lo de abajo se ha mirado aún en nuestra unidad.
+**First sound in Milestone 6 (2026-11-25), experimental**, see
+[MILESTONE-6.md](MILESTONE-6.md). / **Primer sonido en el hito 6
+(2026-11-25), experimental.**
 
-- [ ] Speakers/amps (cs35l41), AoC path: **next**. / Altavoces y
-  amplificadores, ruta del AoC: **lo siguiente**.
-- [ ] Microphones. / Micrófonos.
+> The amplifiers run without Cirrus' protection firmware and without the
+> factory calibration: a higher volume can damage a speaker irreversibly.
+> No level above the bring-up minimum until the protection item below is
+> done. / Los amplificadores van sin firmware de protección ni calibración:
+> un volumen mayor puede dañar un altavoz de forma irreversible. Ningún
+> nivel por encima del mínimo de puesta en marcha hasta cerrar el punto de
+> protección de abajo.
+
+- [x] AoC: Trusty, the GSA and the AoC start (firmware `16099865-polygon`,
+  94 services), patches 0016–0021. / AoC: arrancan Trusty, la GSA y el AoC.
+- [x] Amplifiers identified (two CS35L41 rev B2 on `spi19`; 0017 is
+  Omamobile's PR #204). / Amplificadores identificados.
+- [x] First tone on the bottom speaker at the bring-up minimum (heard). /
+  Primer tono por el altavoz inferior al mínimo (se oyó).
+- [x] Microphone 0 captures (closed loop with the speaker). / El micrófono 0
+  graba (bucle cerrado con el altavoz).
+- [ ] Build and boot `pkgrel=7` (EP6 fix 0022, Omamobile's PR #203, plus
+  0023). / Compilar y arrancar el `pkgrel=7`.
+- [ ] PipeWire/WirePlumber with a volume ceiling; desktop sound. /
+  PipeWire/WirePlumber con techo de volumen; sonido en el escritorio.
+- [ ] Speaker-protection firmware and factory calibration (prerequisite for
+  daily-use levels). / Firmware de protección y calibración de fábrica
+  (requisito para niveles de uso diario).
+- [ ] Top speaker and earpiece; stereo. / Altavoz superior y auricular;
+  estéreo.
+- [ ] Microphones 1 and 2; `dmic_power_list` in the DT. / Micrófonos 1 y 2;
+  `dmic_power_list` en el DT.
+- [ ] Bluetooth audio (A2DP, HFP) and calls (needs the modem). / Audio por
+  Bluetooth (A2DP, HFP) y llamadas (necesita el módem).
+- [ ] AoC recovery: the ACPM reset callback is not registered, so a crashed
+  AoC needs a reboot. / Recuperación del AoC: sin el callback de reset, un
+  AoC caído pide reiniciar.
 - [ ] Haptics (cs40l26). / Vibración.
-- [ ] Sensors. / Sensores.
+- [ ] Sensors (they also live on the AoC). / Sensores (también están en el
+  AoC).
 
 ## Phase 7 — Modem, cameras, NFC, fingerprint / Módem, cámaras, NFC, huella
 
@@ -334,4 +394,7 @@ investigar: nada de lo de abajo se ha mirado aún en nuestra unidad.
     solo el chip ID del sensor frontal, luego captura en bruto y después
     libcamera; primero la frontal, luego la principal.
 - [ ] NFC.
-- [ ] Fingerprint reader.
+- [ ] Fingerprint reader (part of easy unlock; Qualcomm ultrasonic, secure
+  world, factory HAL over Trusty; an irreversible RPMB step not taken; see
+  "Next" above). / Lector de huella (parte del desbloqueo cómodo; ver
+  "Lo siguiente" arriba).

@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 23:00:00 +0000
+Subject: [PATCH] soc: google: aoc: alsa: treat the zumapro AoC like zuma's for
+ the pre-start data
+
+The Pixel 9 Pro XL (zumapro, AoC firmware 16099865-polygon) shows the
+same behaviour as the Pixel 8 Pro on the deep-buffer entry point EP6:
+at the start its read index jumps to the write index and no interrupt
+is raised. With aplay's default start threshold (the whole buffer)
+the ALSA buffer stays full, hw_ptr stays at 0 and the write times out
+with -EIO; with a small start threshold it plays.
+
+Measured with ring_debug=1 on komodo, start threshold = buffer:
+  prepared: written 4194304 read 4194304
+  started:  written 4290304 read 4290304   (96000 bytes dropped)
+  stopping: written 4290304 read 4290304   (5.4 s later, nothing read)
+
+The previous patch only sets the flag for "google,zuma-aoc"; zumapro's
+node is "google,zumapro-aoc", so match both.
+
+Signed-off-by: Luisyr <106528106+luisyr1@users.noreply.github.com>
+---
+--- a/drivers/soc/google/aoc/alsa/aoc_alsa_card.c
++++ b/drivers/soc/google/aoc/alsa/aoc_alsa_card.c
+@@ -2001,6 +2001,13 @@
+ 	return 0;
+ }
+ 
++/* AoC firmware whose deep-buffer entry point drops the data written before the start */
++static const struct of_device_id aoc_drops_prefill_match[] = {
++	{ .compatible = "google,zuma-aoc" },
++	{ .compatible = "google,zumapro-aoc" },
++	{ }
++};
++
+ static int snd_aoc_init(struct aoc_chip *chip)
+ {
+ 	int i;
+@@ -2070,8 +2077,11 @@
+ 
+ 	of_node_put(aoc_node);
+ 
+-	/* Only the zuma AoC firmware drops the pre-start playback data; gs201 is left as it was. */
+-	aoc_node = of_find_compatible_node(NULL, NULL, "google,zuma-aoc");
++	/*
++	 * Only the zuma and zumapro AoC firmware drops the pre-start playback
++	 * data; gs201 is left as it was.
++	 */
++	aoc_node = of_find_matching_node(NULL, aoc_drops_prefill_match);
+ 	chip->deep_buffer_drops_prefill = !!aoc_node;
+ 	of_node_put(aoc_node);
+ 	return 0;

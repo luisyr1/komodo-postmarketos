@@ -1,0 +1,105 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Start the Pixel 9 Pro XL's AoC (audio and sensor DSP), hang-safe, in stages.
+# Adapted from Omamobile's omamobile-tegu-aoc-start and
+# omamobile-husky-aoc-start (MIT License, Copyright (c) 2026 Derek Ross and
+# Omamobile contributors), https://github.com/derekross/omamobile
+# The MIT permission notice is the one in this repository's LICENSE.
+#
+# Runs ON THE PHONE, as root. Read docs/MILESTONE-6.md and docs/SAFETY.md
+# first. NO WARRANTY. An earlier draft of this script (same logic) ran on our
+# unit on 2026-11-25: stages amps, aoc and card, once per boot. Experimental.
+#
+#   komodo-aoc-start amps     the two CS35L41 only (ID and revision in
+#                             dmesg); no AoC, no card, no clock, no sound
+#   komodo-aoc-start aoc      Trusty, GSA, AoC core and firmware; no card
+#   komodo-aoc-start card     aoc + amplifiers + the AoC sound card
+#   add --retry after a start that never finished (see the marker below)
+#
+# Needs: kernel patches 0016-0021, /etc/modprobe.d/komodo-audio.conf, and
+# /lib/firmware/aoc-komodo.bin (YOUR OWN factory vendor/firmware/aoc.bin;
+# never shipped here). It sets no mixer level and plays nothing.
+#
+# A marker is written and synced before anything is loaded and removed at
+# the end, also after a step that returned and failed (that is not a hang).
+# If a boot hangs or resets here, the next run finds the marker and refuses.
+# The AoC starts once per boot: a second firmware load takes a running AoC
+# down (there is no AoC reset), so a failed start needs a reboot.
+set -uo pipefail
+
+stage=${1:-}
+case $stage in amps|aoc|card) ;; *) echo "usage: $0 amps|aoc|card [--retry]"; exit 2 ;; esac
+[[ $(id -u) == 0 ]] || { echo "komodo-aoc: run it as root (sudo)"; exit 2; }
+state=/var/lib/komodo-audio
+marker=$state/start-in-progress
+loaded=/run/komodo-audio/aoc-firmware-loaded
+node=/sys/bus/platform/devices/154b0000.aoc
+fwname=aoc-komodo.bin
+
+log() { echo "komodo-aoc: $*"; }
+[[ ${2:-} == --retry ]] && rm -f "$marker"
+if [[ -e $marker ]]; then
+  log "the last start ($(cat "$marker")) never finished; check the previous boot's log, then --retry"
+  exit 1
+fi
+mkdir -p "$state" "${loaded%/*}"
+echo "$stage $(date -u -Is)" > "$marker"; sync -f "$marker" 2>/dev/null || sync
+finish() { rm -f "$marker"; sync -f "$state" 2>/dev/null || sync; }
+fail() { log "$*"; finish; exit 1; }
+load() { modprobe "$1" || fail "modprobe $1 failed"; }
+
+amps() {
+  # Probe only: reset, ID, OTP, register patch. Nothing plays without the
+  # AoC's TDM clock, and the card (which owns the levels) is not loaded here.
+  load snd_soc_cs35l41_spi
+  sleep 1
+  dmesg | grep -i 'cs35l41' | tail -8
+  ls /sys/bus/spi/drivers/cs35l41/ 2>/dev/null
+}
+
+aoc() {
+  [[ -e $node ]] || fail "no AoC node in this DTB"
+  if grep -q '^Services : [1-9]' "$node/services" 2>/dev/null; then
+    log "already online: $(head -1 "$node/services")"; return 0
+  fi
+  [[ -e $loaded ]] && fail "the AoC was started this boot and is not online; reboot"
+  local fw=
+  for d in /lib/firmware/updates /lib/firmware; do
+    [[ -e $d/$fwname ]] && fw=$d/$fwname && break
+  done
+  [[ -n $fw ]] || fail "no $fwname (your own factory vendor/firmware/aoc.bin)"
+  # Trusty: trusty_ipc before trusty_virtio (Omamobile's Pixel 8 Pro notes)
+  for m in trusty_core trusty_log trusty_ipc trusty_virtio; do load "$m"; done
+  for _ in $(seq 50); do [[ -e /dev/trusty-ipc-dev0 ]] && break; sleep 0.2; done
+  [[ -e /dev/trusty-ipc-dev0 ]] || fail "no /dev/trusty-ipc-dev0"
+  load gsa
+  # aoc_channel_dev and aoc_alsa_dev before aoc_char_dev, which takes every
+  # service still free (tegu's order)
+  for m in gs201_aoc_sysmmu mailbox_wc aoc_core aoc_channel_dev; do load "$m"; done
+  [[ $stage == card ]] && load aoc_alsa_dev
+  load aoc_char_dev
+  [[ -w $node/firmware ]] || fail "the AoC core did not bind"
+  date -u -Is > "$loaded"
+  echo "$fwname" > "$node/firmware" || fail "firmware load request failed"
+  local stable=0
+  for _ in $(seq 150); do
+    if grep -q '^Services : [1-9]' "$node/services" 2>/dev/null; then
+      stable=$((stable + 1))
+    else
+      stable=0
+    fi
+    ((stable >= 15)) && { log "up: $(head -1 "$node/services"), $(head -1 "$node/revision" 2>/dev/null)"; return 0; }
+    sleep 0.2
+  done
+  fail "no stable AoC services after 30 s (dmesg, /dev/acd-logging)"
+}
+
+case $stage in
+  amps) amps ;;
+  aoc) aoc ;;
+  card) aoc; amps
+        for _ in $(seq 25); do grep -q komodo /proc/asound/cards 2>/dev/null && break; sleep 0.2; done
+        grep -q komodo /proc/asound/cards || fail "no sound card (see dmesg)"
+        cat /proc/asound/cards ;;
+esac
+finish

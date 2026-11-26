@@ -51,13 +51,14 @@ As of 2026-11-24. / A fecha de 2026-11-24.
 *Later note (2026-11-25): the active slot is now B, with Nura (Phosh UI,
 Milestone 3) on `userdata` and the five slot-B images built from it; since
 Milestone 4, `boot_b`, `vendor_boot_b` and `vendor_kernel_boot_b` carry the
-`pkgrel=3` kernel (WiFi), and since Milestone 5 the `pkgrel=4` kernel
-(Bluetooth). Slot B is still never marked successful. See
+`pkgrel=3` kernel (WiFi), since Milestone 5 the `pkgrel=4` kernel
+(Bluetooth), and since Milestone 6 the `pkgrel=6` kernel (experimental
+audio). Slot B is still never marked successful. See
 [STATUS.md](STATUS.md). / Nota posterior: el slot activo es ahora B, con
 Nura (UI Phosh, hito 3) en `userdata`; desde el hito 4 `boot_b`,
 `vendor_boot_b` y `vendor_kernel_boot_b` llevan el kernel `pkgrel=3` (WiFi),
-y desde el hito 5 el `pkgrel=4` (Bluetooth). El slot B sigue sin marcarse
-como correcto.*
+desde el hito 5 el `pkgrel=4` (Bluetooth) y desde el hito 6 el `pkgrel=6`
+(audio experimental). El slot B sigue sin marcarse como correcto.*
 
 Previous build (before 2026-11-24): Android Beta program, Android 16, security
 patch 2025-08. How we got here: [UNLOCK.md](UNLOCK.md).
@@ -163,9 +164,10 @@ Observado en el build anterior (Android 16 Beta); sin revisar en Android 17.
 | WiFi / Bluetooth | Broadcom BCM4390 combo, WiFi 7 + Bluetooth (`bcmdhd4390`); WiFi on PCIe (`pcie_1`), ID `14e4:4438` (stock module aliases and our board DTS); Bluetooth on the APM UART (`serial@155d0000`, stock DTBO), firmware `BCM_200.hcd` in stock |
 | GPU | Arm Mali-G715 (Mesa under Nura: "Mali-G715 MC7") |
 | Charger / PMIC | MAX77779 family |
-| Audio amplifiers | Cirrus cs35l41 |
-| Haptics | Cirrus cs40l26 |
-| Audio offload | AoC (Always-on Compute) |
+| Audio amplifiers | two Cirrus CS35L41 on `spi_19` (stock DTBO fragments 55–60): "L" (Top, also the earpiece) and "R" (Bottom); speaker-protection firmware `cs35l41-dsp1-spk-prot.wmfw` with per-side tunings in `vendor` |
+| Microphones | three PDM microphones wired to the AoC (stock capture list `0,1,2`) |
+| Haptics | Cirrus CS40L26 (`hsi2c_9`, 0x43) |
+| Audio offload | AoC (Always-on Compute): all audio goes through it; firmware `aoc.bin`, release `16099865-polygon`, authenticated by the GSA and started through Trusty |
 | Cameras | Front: Sony IMX858 (inferred: the stock camera HAL has a model ID function returning `0x0858`; ultra-wide and telephoto share the same stock codename). Main: a Samsung ISOCELL GN-series 50 MP sensor (the HAL's model ID is `0x08EF`; the exact commercial name is not settled). Read from the factory image only; no chip ID read on the phone yet |
 
 Panel: the bootloader identifies it as `google-km4` (verified 2026-11-24);
@@ -238,6 +240,29 @@ Procedure / Procedimiento: [MILESTONE-5.md](MILESTONE-5.md).
 No Bluetooth address of this unit or of any other device is recorded here. /
 No se anota ninguna dirección Bluetooth de esta unidad ni de otros
 dispositivos.
+
+## Seen from Linux (Milestone 6) / Visto desde Linux (hito 6)
+
+Kernel `7.3.0-rc6-zumapro` (`linux-google-zumapro` `pkgrel=6`), 2026-11-25.
+Experimental. Procedure / Procedimiento: [MILESTONE-6.md](MILESTONE-6.md).
+
+| Item | Value |
+|---|---|
+| Amplifiers | two Cirrus Logic CS35L41, ID `35a40`, revision **B2**, on `spi19` (`0x111c0000`, HSI0 USI1): Top on the native CS0, Bottom on GPIO CS `gpn1-0` |
+| Amplifier pins (stock DTBO) | resets `gpp6-3` (Top), `gph2-1` (Bottom); interrupts `gpa5-5` (Top), `gpa7-2` (Bottom) |
+| TDM 0 | 4 slots × 32 bit × 48 kHz, BCLK 6.144 MHz from the AoC; Top on slot 0, Bottom on slot 1 |
+| Boost | peak current limited to 2.5 A by our DT (stock: 3.5 A); inductor and capacitor as stock |
+| Trusty | answers (API version 5) once its modules are loaded; build string of the stock `ripcurrentpro` image |
+| GSA | `16490000.gsa`, mailbox to Trusty; authenticates and loads the AoC image |
+| AoC | `154b0000.aoc`, carve-out `0x94000000`–`0x96ffffff`, board id `0x40802` rev `0x10000` (`KM4`); firmware `16099865-polygon`, 94 services; starts once per boot (no reset) |
+| Sound card | `google,komodo-aoc-snd-card` (id `googlekomodoaoc`): `EP1 playback` (device 0), `EP6 playback` (device 5), `EP1 capture` (device 8) |
+| Driver limits | `Digital PCM Volume` 0..817, `Analog PCM Volume` 0..10 on both amplifiers (asking for 17 leaves 10) |
+| EP6 | drops what was written before START, with no interrupt (same as the Pixel 8 Pro); patches 0022–0023 |
+| Microphone 0 | `EP1 capture`, mono 48 kHz; the other two not tried |
+
+No amplifier OTP values, calibration data or recordings are recorded here.
+/ No se anotan valores OTP de los amplificadores, datos de calibración ni
+grabaciones.
 
 ## Upstream status / Estado upstream
 

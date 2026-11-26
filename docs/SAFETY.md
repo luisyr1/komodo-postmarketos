@@ -177,6 +177,25 @@ cinco imágenes stock (`boot`, `init_boot`, `vendor_boot`, `vendor_kernel_boot`,
 `dtbo`) de la imagen de fábrica del **mismo** build para restaurar el slot B
 con `fastboot flash <part>_b`.
 
+## Speakers (audio bring-up) / Altavoces (puesta en marcha del audio)
+
+Since Milestone 6 the kernel can drive the two CS35L41 speaker amplifiers,
+**without** Cirrus' speaker-protection firmware and **without** the unit's
+factory calibration. Nothing limits the voice coil's temperature or
+excursion. A loud, long or bass-heavy signal can **destroy a speaker
+irreversibly**. Keep every barrier of
+[MILESTONE-6.md](MILESTONE-6.md#3-the-safety-barriers): the audio
+blacklist, the sound servers ignoring the card, the bottom speaker only,
+the fixed minimum levels of `komodo-first-tone.sh`, short 1 kHz tones only.
+Do not raise levels until the protection firmware and the calibration are
+in place (not done). / Desde el hito 6 el kernel puede mover los dos
+amplificadores CS35L41 **sin** el firmware de protección de Cirrus y **sin**
+la calibración de fábrica de la unidad. Nada limita la temperatura ni la
+excursión de la bobina: una señal fuerte, larga o con graves puede
+**destrozar un altavoz de forma irreversible**. Mantén todas las barreras
+del hito 6 y no subas niveles hasta tener el firmware de protección y la
+calibración (pendiente).
+
 ## Before every commit or push / Antes de cada commit o push
 
 This repository is public. Run through this list every time:

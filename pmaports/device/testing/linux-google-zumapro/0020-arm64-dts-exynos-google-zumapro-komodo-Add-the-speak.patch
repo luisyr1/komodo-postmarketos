@@ -1,0 +1,271 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 22:00:00 +0000
+Subject: [PATCH 20/20] arm64: dts: exynos: google: zumapro-komodo: Add the
+ speaker amplifiers
+
+The Pixel 9 Pro XL's two CS35L41 on spi19 (stock dtbo fragments 55-60):
+CS0 native and CS1 on gpn1-0, resets gpp6-3 and gph2-1, interrupts
+gpa5-5 and gpa7-2, VA from the S2MPG15's always-on BUCKA and VP on VSYS
+(fixed stand-ins), stock's TDM slots, Top/Bottom prefixes as on the
+Pixel 7 and 8 Pro so the AoC card driver's speaker limits apply.
+
+Bring-up deviations from stock: boost peak current 2.5 A instead of
+3.5 A; cirrus,dsp-no-hibernate (stock: hibernate-enable), since the
+protection firmware does not survive mainline's hibernation.
+
+HSI1's CMU and pin controller come up for the bottom reset (gph2), and
+gpa7 gets its per-pin interrupts (SPI 36-43, stock DTB).
+
+The amplifier driver is blacklisted on komodo; nothing here makes sound.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../boot/dts/exynos/google/zumapro-komodo.dts | 182 ++++++++++++++++++
+ 1 file changed, 182 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+index 2c55f33..b30e4e6 100644
+--- a/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
++++ b/arch/arm64/boot/dts/exynos/google/zumapro-komodo.dts
+@@ -55,6 +55,30 @@
+ 		regulator-always-on;
+ 	};
+ 
++	/*
++	 * Stand-ins for the speaker amplifiers' supplies, which the
++	 * bootloader leaves on and Linux never switches: VA is the S2MPG15's
++	 * always-on BUCKA ("SA", 1.7-2.1 V in stock's dtbo; 1.8 V nominal),
++	 * VP sits on VSYS (stock's V_SYS_DUMMY, 4.2 V).
++	 */
++	komodo_amp_va: regulator-amp-va {
++		compatible = "regulator-fixed";
++		regulator-name = "amp-va";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	komodo_amp_vp: regulator-amp-vp {
++		compatible = "regulator-fixed";
++		regulator-name = "amp-vp";
++		regulator-min-microvolt = <4200000>;
++		regulator-max-microvolt = <4200000>;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
+ 	wlan_reg_on: regulator-wlan-reg-on {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "wlan-reg-on";
+@@ -388,6 +412,13 @@
+ 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+ 		samsung,pin-drv = <0>;
+ 	};
++
++	/* Bottom amplifier (cs35l41@1) interrupt, stock dtbo fragment 55 */
++	komodo_amp_bottom_irq: amp-bottom-irq-pins {
++		samsung,pins = "gpa7-2";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++	};
+ };
+ 
+ &pinctrl_custom_alive {
+@@ -400,6 +431,14 @@
+ 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+ 		samsung,pin-drv = <0>;
+ 	};
++
++	/* Chip select of the bottom amplifier (spi19 CS1), stock fragment 59 */
++	komodo_amp_bottom_cs: amp-bottom-cs-pins {
++		samsung,pins = "gpn1-0";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-drv = <1>;
++	};
+ };
+ 
+ /*
+@@ -414,6 +453,13 @@
+ 		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+ 		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+ 	};
++
++	/* Top amplifier (cs35l41@0) interrupt, stock dtbo fragment 56 */
++	komodo_amp_top_irq: amp-top-irq-pins {
++		samsung,pins = "gpa5-5";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++	};
+ };
+ 
+ &pinctrl_peric0 {
+@@ -431,6 +477,15 @@
+ 		samsung,pin-function = <1>;
+ 		samsung,pin-val = <0>;
+ 	};
++
++	/* Top amplifier reset, stock dtbo fragment 57 */
++	komodo_amp_top_rst: amp-top-rst-pins {
++		samsung,pins = "gpp6-3";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
++		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
++	};
+ };
+ 
+ /*
+@@ -448,6 +503,24 @@
+ 	};
+ };
+ 
++/* HSI1's pins, for the bottom amplifier's reset; the bootloader leaves HSI1 on. */
++&cmu_hsi1 {
++	status = "okay";
++};
++
++&pinctrl_hsi1 {
++	status = "okay";
++
++	/* Bottom amplifier reset, stock dtbo fragment 58 */
++	komodo_amp_bottom_rst: amp-bottom-rst-pins {
++		samsung,pins = "gph2-1";
++		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
++		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
++		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
++		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
++	};
++};
++
+ &pinctrl_hsi2 {
+ 	status = "okay";
+ 
+@@ -493,6 +566,20 @@
+ 		     <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+ };
+ 
++/* The bottom amplifier's interrupt (gpa7-2); one SPI per pin, 36-43 as in stock's DTB. */
++&gpa7 {
++	interrupt-controller;
++	#interrupt-cells = <2>;
++	interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
++		     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
++};
++
+ &gpa8 {
+ 	interrupt-controller;
+ 	#interrupt-cells = <2>;
+@@ -585,6 +672,101 @@
+ 	};
+ };
+ 
++/*
++ * The speaker amplifiers: two Cirrus Logic CS35L41 on HSI0 USI1 (Google's
++ * spi_19), stock dtbo fragments 55-60. Chip select 0 (native) is the top
++ * speaker, which is also the earpiece (stock's handset path bypasses its
++ * DSP); chip select 1 (gpn1-0) is the bottom loudspeaker, stock's "R"
++ * amplifier. Their audio port is TDM 0 of the AoC, so without the AoC
++ * these nodes give register access only, no sound.
++ *
++ * Names follow the Pixel 7 and 8 Pro (Top, Bottom): the AoC card driver
++ * caps "Top/Bottom Digital PCM Volume" at 817 (0 dB) and "Analog PCM
++ * Volume" at 10 unless the protection firmware runs with calibration.
++ * The boost peak current is the 2.5 A bring-up limit used on the Pixel 7
++ * and 8 Pro (stock: 3.5 A); inductor and capacitor are stock's (1 uH,
++ * 4 uF) and select the boost loop coefficients, so they must stay. The
++ * TDM slots are stock's mixer_paths.xml (ASPRX1/2 0,1 and 1,0; ASPTX1-4
++ * 0,2,4,6 and 1,3,5,7). The firmware subsystem "komodo" names the
++ * protection firmware files the driver asks for.
++ *
++ * snd_soc_cs35l41_spi is blacklisted on komodo: only the bring-up steps
++ * load it, after the AoC is up.
++ */
++&usi1_hsi0 {
++	status = "okay";
++};
++
++&spi19 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&komodo_amp_bottom_cs>;
++	num-cs = <2>;
++	cs-gpios = <0>, <&gpn1 0 GPIO_ACTIVE_LOW>;
++	status = "okay";
++
++	komodo_amp_top: amplifier@0 {
++		compatible = "cirrus,cs35l41";
++		reg = <0>;
++		spi-max-frequency = <25000000>;
++		#sound-dai-cells = <1>;
++		interrupts-extended = <&gpa5 5 IRQ_TYPE_LEVEL_HIGH>;
++		/* AMP1_RESET_L: the driver drives 1 to release reset */
++		reset-gpios = <&gpp6 3 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&komodo_amp_top_irq &komodo_amp_top_rst>;
++		VA-supply = <&komodo_amp_va>;
++		VP-supply = <&komodo_amp_vp>;
++		sound-name-prefix = "Top";
++		cirrus,subsystem-id = "komodo";
++		cirrus,boost-type = <0>;
++		cirrus,boost-peak-milliamp = <2500>;
++		cirrus,boost-ind-nanohenry = <1000>;
++		cirrus,boost-cap-microfarad = <4>;
++		cirrus,asp-sdout-hiz = <3>;
++		/* the stock protection firmware does not survive hibernation */
++		cirrus,dsp-no-hibernate;
++		/* GPIO2 = push-pull interrupt, active high */
++		cirrus,gpio2-src-select = <5>;
++		cirrus,gpio2-output-enable;
++		google,tdm-rx-slots = <0 1>;
++		google,tdm-tx-slots = <0 2 4 6>;
++
++		controller-data {
++			samsung,spi-feedback-delay = <1>;
++		};
++	};
++
++	komodo_amp_bottom: amplifier@1 {
++		compatible = "cirrus,cs35l41";
++		reg = <1>;
++		spi-max-frequency = <25000000>;
++		#sound-dai-cells = <1>;
++		interrupts-extended = <&gpa7 2 IRQ_TYPE_LEVEL_HIGH>;
++		/* AMP2_RESET_L: the driver drives 1 to release reset */
++		reset-gpios = <&gph2 1 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&komodo_amp_bottom_irq &komodo_amp_bottom_rst>;
++		VA-supply = <&komodo_amp_va>;
++		VP-supply = <&komodo_amp_vp>;
++		sound-name-prefix = "Bottom";
++		cirrus,subsystem-id = "komodo";
++		cirrus,boost-type = <0>;
++		cirrus,boost-peak-milliamp = <2500>;
++		cirrus,boost-ind-nanohenry = <1000>;
++		cirrus,boost-cap-microfarad = <4>;
++		cirrus,asp-sdout-hiz = <3>;
++		cirrus,dsp-no-hibernate;
++		cirrus,gpio2-src-select = <5>;
++		cirrus,gpio2-output-enable;
++		google,tdm-rx-slots = <1 0>;
++		google,tdm-tx-slots = <1 3 5 7>;
++
++		controller-data {
++			samsung,spi-feedback-delay = <1>;
++		};
++	};
++};
++
+ &usb {
+ 	clocks = <&cmu_hsi0 CLK_GOUT_HSI0_USB_LINK>,
+ 		 <&cmu_hsi0 CLK_MOUT_HSI0_USB20_REF>,
+-- 
+2.56.0
+

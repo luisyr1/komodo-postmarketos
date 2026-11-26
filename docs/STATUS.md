@@ -54,6 +54,20 @@ Last updated / Última actualización: 2026-11-25
   Bluetooth audio untestable (no audio yet); suspend, long idle, profiles
   (HID, A2DP, tethering) and 4 Mbaud untried.
   [MILESTONE-5.md](MILESTONE-5.md).
+- **Milestone 6: first audio, experimental** (2026-11-25): kernel
+  `linux-google-zumapro` `pkgrel=6` installed (patches 0016–0021: USI1
+  clocks, spi19, Trusty/GSA/AoC, the two CS35L41 with the boost limited to
+  2.5 A, the AoC sound card). The AoC (audio coprocessor) boots firmware
+  `16099865-polygon` (the owner's own `aoc.bin`, not redistributed) with 94
+  services; a 2 s, 1 kHz tone at the lowest analog gain played on the
+  **bottom speaker** and was heard, and **microphone 0** picked it up.
+  **The amplifiers run without the protection firmware and without the
+  factory calibration: raising the volume can damage a speaker
+  irreversibly.** The recipe is at `pkgrel=7` (adds 0022–0023, tested by
+  loading two modules by hand; the package is not built or booted yet).
+  PipeWire ignores the card on purpose, so the desktop has no sound; top
+  speaker/earpiece, stereo, usable volume, microphones 1–2, Bluetooth audio
+  and calls untried. [MILESTONE-6.md](MILESTONE-6.md).
 
 - Bootloader: **desbloqueado** (`verifiedbootstate` orange), slot activo B (Nura).
 - Ambos slots: Android 17 stock, `CP4A.261105.040.A1` (parche 2026-11-05),
@@ -104,6 +118,20 @@ Last updated / Última actualización: 2026-11-25
   codec capabilities (-22)`, audio por Bluetooth imposible de probar (aún
   no hay audio); sin probar suspensión, reposo prolongado, perfiles (HID,
   A2DP, compartir conexión) ni 4 Mbaud.
+- **Hito 6: primer audio, experimental** (2026-11-25): kernel
+  `linux-google-zumapro` `pkgrel=6` instalado (parches 0016–0021: relojes
+  de USI1, spi19, Trusty/GSA/AoC, los dos CS35L41 con el boost limitado a
+  2,5 A y la tarjeta de sonido del AoC). El AoC (coprocesador de audio)
+  arranca el firmware `16099865-polygon` (el `aoc.bin` del propio dueño,
+  sin redistribuir) con 94 servicios; un tono de 1 kHz de 2 s con la
+  ganancia analógica mínima sonó por el **altavoz inferior** y se oyó, y el
+  **micrófono 0** lo captó. **Los amplificadores van sin firmware de
+  protección ni calibración de fábrica: subir el volumen puede dañar un
+  altavoz de forma irreversible.** La receta está en `pkgrel=7` (añade
+  0022–0023, probados cargando dos módulos a mano; el paquete aún no se ha
+  compilado ni arrancado). PipeWire ignora la tarjeta a propósito, así que
+  el escritorio no tiene sonido; sin probar altavoz superior/auricular,
+  estéreo, volumen de uso, micrófonos 1–2, audio por Bluetooth ni llamadas.
 
 Details / Detalles: [DEVICE.md](DEVICE.md), [UNLOCK.md](UNLOCK.md).
 
@@ -176,6 +204,23 @@ del APM a 3 Mbaud (stock usa 4) y el 0015 da a `hci_bcm` una entrada
 Ninguno está en upstream ni se ha enviado. El firmware sale de la imagen de
 fábrica del propio dueño y no se distribuye aquí.
 
+Audio (experimental): patches 0016–0018 bring up HSI0's USI1 (`spi19`),
+0019 Trusty, the GSA and the AoC, 0020 the two CS35L41 and 0021 the AoC
+sound card; 0017 and 0022 are Lef's pull requests #204 and #203 to the
+Omamobile kernel, taken unchanged, and 0023 extends 0022 to zumapro. The
+AoC firmware comes from the owner's own factory image and is not shipped
+here. **The amplifiers run without Cirrus' protection firmware and without
+the factory calibration; a higher volume can destroy a speaker.** Every
+audio module stays blacklisted and the levels stay at the bring-up minimum
+(see [MILESTONE-6.md](MILESTONE-6.md#3-the-safety-barriers)). / Audio
+(experimental): los parches 0016–0021 levantan `spi19`, Trusty, la GSA, el
+AoC, los dos CS35L41 y la tarjeta; 0017 y 0022 son los PR #204 y #203 de
+Lef al kernel de Omamobile, tal cual, y 0023 extiende 0022 a zumapro. El
+firmware del AoC sale de la imagen de fábrica del propio dueño. **Los
+amplificadores van sin firmware de protección ni calibración: un volumen
+mayor puede destrozar un altavoz.** Todos los módulos de audio siguen en
+lista negra y los niveles, en el mínimo de puesta en marcha.
+
 Known issue / Problema conocido (Milestone 3 / hito 3): `buffyboard.service`
 stayed enabled under Phosh and injected phantom key presses from the same
 touches (stray characters in the PIN); disabled by hand, cause of it being
@@ -211,8 +256,10 @@ Omamobile kernel PR #276 (`komodo` board, depends on PR #273), per its author.
 | Power off | — | untested | unknown | not tried under Nura |
 | CPU frequency | — | **works** | unknown | cpufreq (schedutil) under Nura; only `clk-acpm` and `gs101_acpm_tmu` load by modalias |
 | WiFi | BCM4390 (`bcmdhd4390`), PCIe `14e4:4438`, chip revision b1 (PCI rev `0x05`) | **works** (throughput not measured) | disabled upstream (PR #276) | Milestone 4: patches 0012 (`pcie_1`, Gen3 x1 link, 16 MiB DMA pool) and 0013 (`brcmfmac`, not upstream). Firmware `27.10.1121.57.30` from the owner's own factory image, not redistributed. Scan on 2.4/5 GHz (WPA2, WPA3 seen), WPA connection from Phosh, ping ~18 ms without loss, automatic reconnection. Only an advertised link rate of 270 Mbit/s on 5 GHz; `Set join_pref error (-52)`; `p2p-dev-wlan0` not created (WiFi Direct most likely broken). Untested: 6 GHz, WiFi 7/EHT, suspend, power saving, AP mode. NVRAM chosen without reading the OTP; template MAC in it (NetworkManager randomises) |
-| Bluetooth | BCM4390 combo, Bluetooth half on the APM UART (`serial@155d0000`) | **works** (with limits) | unknown | Milestone 5: patches 0014 (DTS) and 0015 (`hci_bcm`, not upstream), `hci_uart` + `btbcm` at 3 Mbaud. ROM `BCM4390B1`, factory `BCM_200.hcd` from the owner's own image (not redistributed), patch loaded in ~4 s (build 0000 → 0474). BlueZ powers `hci0` (LE central and peripheral roles); 12 s scan saw 16 devices; paired and connected with a phone from Phosh, WiFi connected at the same time; autoloads at boot (~10 s), pairing persists, zero failed units. **Default chip address** (generic, the same on every unconfigured BCM4390; the unit's own not located, to be set with `btmgmt public-addr` or similar). Seven `Failed to read codec capabilities (-22)`. Untested: Bluetooth audio (no audio yet), HID/A2DP/tethering, suspend and long idle, 4 Mbaud |
-| Audio (amps/haptics) | cs35l41 / cs40l26 | **not supported** | unknown | Not started. AoC involved (unverified how) |
+| Bluetooth | BCM4390 combo, Bluetooth half on the APM UART (`serial@155d0000`) | **works** (with limits) | unknown | Milestone 5: patches 0014 (DTS) and 0015 (`hci_bcm`, not upstream), `hci_uart` + `btbcm` at 3 Mbaud. ROM `BCM4390B1`, factory `BCM_200.hcd` from the owner's own image (not redistributed), patch loaded in ~4 s (build 0000 → 0474). BlueZ powers `hci0` (LE central and peripheral roles); 12 s scan saw 16 devices; paired and connected with a phone from Phosh, WiFi connected at the same time; autoloads at boot (~10 s), pairing persists, zero failed units. **Default chip address** (generic, the same on every unconfigured BCM4390; the unit's own not located, to be set with `btmgmt public-addr` or similar). Seven `Failed to read codec capabilities (-22)`. Untested: Bluetooth audio (the phone's own audio is only experimental since Milestone 6), HID/A2DP/tethering, suspend and long idle, 4 Mbaud |
+| Audio: speakers | 2× Cirrus CS35L41 rev B2 on `spi19` (Top, also the earpiece; Bottom), fed over TDM 0 by the AoC | **partial / experimental**: bottom speaker, bring-up minimum only | unknown | Milestone 6: patches 0016–0021 (`pkgrel=6`); AoC firmware `16099865-polygon` from the owner's own image (not redistributed), 94 services. A 2 s, 1 kHz, -20 dBFS tone at Digital 657 / Analog 0 (lowest step) on the bottom speaker, heard. **No protection firmware, no factory calibration: higher levels can damage a speaker irreversibly.** Barriers: driver limits (Digital ≤ 817, Analog ≤ 10, verified), boost peak 2.5 A, DSP bypassed, sound servers ignore the card, all modules blacklisted. EP6 stall fixed by `aplay -R` or 0022–0023 (in `pkgrel=7`, not built yet). Untested: top speaker/earpiece, stereo, usable volume, desktop sound (PipeWire not connected), Bluetooth audio, calls. Open warnings: no `dmic_power_list` in the DT, AoC reset callback not registered |
+| Audio: microphones | 3 PDM microphones on the AoC | **partial / experimental**: microphone 0 only | unknown | Milestone 6: `EP1 capture`, mono 48 kHz, soft gain 22 dB; picked up the speaker tone in a closed loop (1 kHz component ≈60–77 during the tone vs ≈0.3 background; neighbouring frequencies unchanged), playback and capture at the same time. Microphones 1 and 2 untested |
+| Haptics | Cirrus CS40L26 | **not supported** | unknown | Not started |
 | Sensors | unverified | untested | unknown | |
 | Modem / calls / SMS / data | unverified | **not supported** | unknown | Not started |
 | Cameras | front Sony IMX858, main Samsung ISOCELL GN 50 MP (from the stock camera HAL; not read on the phone) | **not supported** | unknown | Not started; feasibility studied, see [ROADMAP.md](ROADMAP.md) |

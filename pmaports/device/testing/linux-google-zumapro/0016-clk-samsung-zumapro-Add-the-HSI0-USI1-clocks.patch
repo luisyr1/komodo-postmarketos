@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Luisyr <106528106+luisyr1@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 22:00:00 +0000
+Subject: [PATCH 16/20] clk: samsung: zumapro: Add the HSI0 USI1 clocks
+
+HSI0's USI1 is the SPI controller of the speaker amplifiers on the Pixel
+9 Pro XL (komodo): Google's spi_19 at 0x111c0000, USI offset 0x1018 in
+the HSI0 sysreg. Describe its local mux, divider and three gates.
+
+The offsets follow the USI2-USI4 layout of this CMU (mux 0x1018,
+divider 0x1818, gates 0x211c/0x20f4/0x20f8) and are the same as on zuma,
+where the Pixel 8 Pro's amplifiers run with them (Somnius/
+linux-omarchy-mobile b444482d5262). They have not been read back on a
+zumapro phone yet.
+
+The gates are kept on and in manual mode like USI2's and USI3's, which
+avoids the register access right after a gate opens that hung the noirq
+resume on the Pixel 9a.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ drivers/clk/samsung/clk-zumapro.c          | 23 +++++++++++++++++++---
+ include/dt-bindings/clock/google,zumapro.h |  5 +++++
+ 2 files changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/samsung/clk-zumapro.c b/drivers/clk/samsung/clk-zumapro.c
+index 56dd307..794962e 100644
+--- a/drivers/clk/samsung/clk-zumapro.c
++++ b/drivers/clk/samsung/clk-zumapro.c
+@@ -619,6 +619,7 @@ PNAME(mout_hsi0_noc_user_parents) = { "oscclk", "zumapro_dout_hsi0_noc" };
+ PNAME(mout_hsi0_alt_user_parents) = { "oscclk", "zumapro_gout_hsi0_alt" };
+ PNAME(mout_hsi0_noc_local_parents) = { "zumapro_mout_hsi0_noc_user", "zumapro_mout_hsi0_alt_user" };
+ PNAME(mout_hsi0_peri_user_parents) = { "oscclk", "zumapro_dout_hsi0_peri" };
++PNAME(mout_hsi0_usi1_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
+ PNAME(mout_hsi0_usi2_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
+ PNAME(mout_hsi0_usi3_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
+ PNAME(mout_hsi0_usi4_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
+@@ -641,6 +642,9 @@ static const struct samsung_mux_clock hsi0_muxes[] __initconst = {
+ 	      0x1000, 0, 1, 0, CLK_MUX_READ_ONLY),
+ 	MUX_F(CLK_MOUT_HSI0_PERI_USER, "zumapro_mout_hsi0_peri_user", mout_hsi0_peri_user_parents,
+ 	      0x680, 4, 1, 0, CLK_MUX_READ_ONLY),
++	MUX_F(CLK_MOUT_HSI0_USI1_LOCAL, "zumapro_mout_hsi0_usi1_local",
++	      mout_hsi0_usi1_local_parents,
++	      0x1018, 0, 1, 0, CLK_MUX_READ_ONLY),
+ 	MUX_F(CLK_MOUT_HSI0_USI2_LOCAL, "zumapro_mout_hsi0_usi2_local",
+ 	      mout_hsi0_usi2_local_parents,
+ 	      0x101c, 0, 1, 0, CLK_MUX_READ_ONLY),
+@@ -656,6 +660,8 @@ static const struct samsung_div_clock hsi0_dividers[] __initconst = {
+ 	      0x1804, 0, 6, 0, CLK_DIVIDER_READ_ONLY),
+ 	DIV_F(CLK_DOUT_HSI0_EUSB, "zumapro_dout_hsi0_eusb", "zumapro_mout_hsi0_noc_local",
+ 	      0x180c, 0, 2, 0, CLK_DIVIDER_READ_ONLY),
++	DIV_F(CLK_DOUT_HSI0_USI1, "zumapro_dout_hsi0_usi1", "zumapro_gout_hsi0_usi1_source",
++	      0x1818, 0, 4, 0, 0),
+ 	DIV_F(CLK_DOUT_HSI0_USI2, "zumapro_dout_hsi0_usi2", "zumapro_gout_hsi0_usi2_source",
+ 	      0x181c, 0, 4, 0, 0),
+ 	DIV_F(CLK_DOUT_HSI0_USI3, "zumapro_dout_hsi0_usi3", "zumapro_gout_hsi0_usi3_source",
+@@ -669,9 +675,16 @@ static const struct samsung_div_clock hsi0_dividers[] __initconst = {
+  * in the first microseconds after one of them is opened never returns, and
+  * the USI driver's resume and the SPI controllers' runtime PM open them
+  * right before theirs: on the Pixel 9a that hung the noirq resume now and
+- * then.
++ * then. USI1 (SPI19, the speaker amplifiers) is kept the same way.
+  */
+ static const struct samsung_gate_clock hsi0_gates[] __initconst = {
++	GATE(CLK_GOUT_HSI0_USI1_SOURCE, "zumapro_gout_hsi0_usi1_source",
++	     "zumapro_mout_hsi0_usi1_local",
++	     0x211c, 21, CLK_IS_CRITICAL, 0),
++	GATE(CLK_GOUT_HSI0_USI1_IP, "zumapro_gout_hsi0_usi1_ip", "zumapro_dout_hsi0_usi1",
++	     0x20f4, 21, CLK_IS_CRITICAL | CLK_SET_RATE_PARENT, 0),
++	GATE(CLK_GOUT_HSI0_USI1_PCLK, "zumapro_gout_hsi0_usi1_pclk", "zumapro_mout_hsi0_noc_local",
++	     0x20f8, 21, CLK_IS_CRITICAL, 0),
+ 	GATE(CLK_GOUT_HSI0_USI2_SOURCE, "zumapro_gout_hsi0_usi2_source",
+ 	     "zumapro_mout_hsi0_usi2_local",
+ 	     0x2120, 21, CLK_IS_CRITICAL, 0),
+@@ -722,9 +735,13 @@ static const struct samsung_gate_clock hsi0_ro_gates[] __initconst = {
+ 	     0x20e4, 21, CLK_IGNORE_UNUSED, 0),
+ };
+ 
+-/* USI2 (SPI20, touchscreen) and USI3 (SPI21, GNSS) run in manual mode. */
++/*
++ * USI1 (SPI19, speaker amplifiers), USI2 (SPI20, touchscreen) and USI3
++ * (SPI21, GNSS) run in manual mode.
++ */
+ static const unsigned long hsi0_regs[] __initconst = {
+ 	0x2120, 0x20fc, 0x2100, 0x2124, 0x2104, 0x2108,
++	0x211c, 0x20f4, 0x20f8,
+ };
+ 
+ static const struct samsung_cmu_info hsi0_cmu __initconst = {
+@@ -738,7 +755,7 @@ static const struct samsung_cmu_info hsi0_cmu __initconst = {
+ 	.nr_gate_clks = ARRAY_SIZE(hsi0_gates),
+ 	.ro_gate_clks = hsi0_ro_gates,
+ 	.nr_ro_gate_clks = ARRAY_SIZE(hsi0_ro_gates),
+-	.nr_clk_ids = CLK_GOUT_HSI0_USI4_PCLK + 1,
++	.nr_clk_ids = CLK_GOUT_HSI0_USI1_PCLK + 1,
+ 	.clk_regs = hsi0_regs,
+ 	.nr_clk_regs = ARRAY_SIZE(hsi0_regs),
+ 	.clk_name = "bus",
+diff --git a/include/dt-bindings/clock/google,zumapro.h b/include/dt-bindings/clock/google,zumapro.h
+index b46da72..408c826 100644
+--- a/include/dt-bindings/clock/google,zumapro.h
++++ b/include/dt-bindings/clock/google,zumapro.h
+@@ -108,6 +108,11 @@
+ #define CLK_DOUT_HSI0_USI4		30
+ #define CLK_GOUT_HSI0_USI4_IP		31
+ #define CLK_GOUT_HSI0_USI4_PCLK		32
++#define CLK_MOUT_HSI0_USI1_LOCAL	33
++#define CLK_GOUT_HSI0_USI1_SOURCE	34
++#define CLK_DOUT_HSI0_USI1		35
++#define CLK_GOUT_HSI0_USI1_IP		36
++#define CLK_GOUT_HSI0_USI1_PCLK		37
+ 
+ /* CMU_G3D. */
+ #define CLK_FOUT_G3D			1
+-- 
+2.56.0
+

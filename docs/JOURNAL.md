@@ -910,3 +910,159 @@ faltan los cambios de `zumapro` aún sin fusionar allí, drivers de sensor y
 tablas que hay que sacar del propio teléfono y no se pueden redistribuir;
 calidad muy inferior a la de stock; riesgo físico por las tensiones de
 alimentación, así que no se publica ningún procedimiento de encendido).
+
+---
+
+## 2026-11-25 — Milestone 6: first audio, experimental / Hito 6: primer audio, experimental
+
+Procedure: [MILESTONE-6.md](MILESTONE-6.md). Kernel package
+`linux-google-zumapro` `pkgrel=6` installed (patches 0001–0021 on commit
+`ffd33b7`); the recipe in
+[`../pmaports/device/testing/`](../pmaports/device/testing/) is already at
+`pkgrel=7` (0001–0023), not built or booted yet. Device package unchanged
+(`pkgrel=3`).
+
+**Safety first.** The two CS35L41 amplifiers run without Cirrus'
+speaker-protection firmware and without the factory calibration. Raising
+the volume can damage a speaker irreversibly. Everything below was done at
+the bring-up minimum, behind these barriers: the AoC card driver's limits
+(Digital ≤ 817, Analog ≤ 10), the boost peak current limited to 2.5 A in
+the DT (stock: 3.5 A), the bottom speaker only, the DSP bypassed, a 2 s
+1 kHz tone at -20 dBFS with no bass, PipeWire and PulseAudio told to ignore
+the card, and every audio module blacklisted. Daily use needs the
+protection firmware and the calibration first.
+
+Hardware, from the stock DTB/DTBO and the factory image: two Cirrus
+CS35L41 on Google's `spi_19` (HSI0 USI1), Top on the native chip select
+(also the earpiece) and Bottom on a GPIO chip select; three PDM
+microphones wired to the AoC, Google's audio and sensor coprocessor, which
+all audio goes through. Starting the AoC needs Trusty and the GSA, which
+authenticate the signed firmware `aoc.bin`.
+
+Patches: 0016 adds HSI0 USI1's clocks to `clk-zumapro`; 0017 is Lef's
+pull request #204 to the Omamobile kernel, unchanged (the native chip
+select left in auto mode for the amplifier on a GPIO chip select); 0018
+adds `usi1_hsi0` and `spi19` to `zumapro.dtsi`; 0019 enables Trusty, the
+GSA, the mailboxes and the AoC on `komodo`; 0020 adds the two CS35L41 with
+the boost limited to 2.5 A; 0021 adds the sound card
+`google,komodo-aoc-snd-card`. Firmware: the owner's own `aoc.bin` from the
+factory image of `CP4A.261105.040.A1`, installed as
+`/lib/firmware/aoc-komodo.bin`; not redistributed (its size and SHA-256 are
+in MILESTONE-6.md).
+
+The bring-up went in stages, each one passed:
+
+- **E-1:** a normal boot with every audio module blacklisted.
+- **E0:** both amplifiers identify themselves (CS35L41, revision B2).
+- **E1:** the AoC boots firmware `16099865-polygon` with 94 services
+  (started once per boot: it has no reset); the card appears; the driver's
+  limits hold (Digital max 817, Analog max 10; asking for 17 leaves 10).
+
+The first attempt at playback stalled: `aplay` failed with `I/O error`
+after about 5 s and nothing was heard. Measured with the driver's ring
+counters, the cause is that the AoC's deep-buffer entry point EP6 throws
+away what was written before START, without an interrupt; `aplay` starts
+with its buffer full, ALSA never sees it drain, and both sides wait. The
+Pixel 8 Pro has the same behaviour, fixed by Lef's pull request #203 to
+the Omamobile kernel, but only for zuma. Two ways round it: `aplay -R`
+(start with little written), or the kernel fix: 0022 is PR #203 unchanged
+and 0023, ours, applies it to `google,zumapro-aoc` as well. 0022–0023 were
+tested by loading the two rebuilt ALSA modules by hand; a default `aplay`
+then plays to the end.
+
+Result: a 1 kHz sine at -20 dBFS for 2 s through the bottom speaker, at
+Digital 657 and Analog 0 (the lowest analog step), was heard. In a closed
+loop, microphone 0 (`EP1 capture`, mono 48 kHz, soft gain 22 dB) picked
+the 1 kHz component up only during those 2 s (about 60–77 against about
+0.3 of background, in the units of our Goertzel measure on S16 samples),
+with the neighbouring frequencies unchanged. Playback and capture work at
+the same time. The recordings were deleted; only the numbers were kept.
+
+Problems and limits:
+
+1. No protection firmware and no calibration: no level above the bring-up
+   minimum.
+2. `pkgrel=6` is what is installed; `pkgrel=7` (with 0022–0023) has not
+   been built or booted as a package.
+3. The desktop has no sound: a udev rule keeps PipeWire and PulseAudio off
+   the card on purpose.
+4. Only the bottom speaker at the minimum and microphone 0 were tried. Not
+   tried: the top speaker and earpiece, stereo, usable volume, the other
+   two microphones, Bluetooth audio, calls.
+5. Open warnings in `dmesg`: the AoC node has no `dmic_power_list`, and
+   the AoC reset callback through ACPM is not registered (a crashed AoC
+   needs a reboot).
+6. The commit messages of 0016–0021 still read as untested in places; they
+   are kept as built, and the docs describe the current state.
+
+Published in [`../scripts/audio/`](../scripts/audio/): the modprobe
+blacklist, `komodo-aoc-start` (adapted from Omamobile's AoC start scripts,
+MIT) and `komodo-first-tone.sh`, which plays the same tone at fixed
+minimum levels and refuses to play if the levels or the driver's limits
+are not the expected ones. The UCM and WirePlumber drafts are not
+published: they have not been tested.
+
+Patches 0016, 0018–0021 and 0023 are ours, not upstream and not sent
+anywhere; like the rest of this repository they were written with AI
+assistance, so they are not meant for Nura or the kernel as is. 0017 and
+0022 are Lef's (GitHub `Somnius`), from pull requests #204 and #203 of
+`derekross/linux-omamobile`, both still open there; they keep their author,
+message, `Signed-off-by` and commit id.
+
+Publication note: the `From:` line of our patches was normalised to the
+project's public author identity, all `Date:` headers are in UTC, and the
+checksums in the APKBUILD were recomputed; the patch bodies are unchanged.
+
+Roadmap after this entry: build and boot `pkgrel=7`; connect PipeWire with
+a volume ceiling; the speaker-protection firmware and the calibration; the
+top speaker; the other microphones; Bluetooth audio. Then, as before, a
+Bluetooth address of our own, the cameras and easy unlock. For the
+fingerprint reader: it is Qualcomm's ultrasonic sensor, driven from the
+secure world; the realistic path is the factory HAL talking to Trusty, as
+Omamobile does on the Pixel 9a, and Trusty already answers in our kernel
+since this milestone; there is an irreversible step (RPMB) that has not
+been taken. See [ROADMAP.md](ROADMAP.md).
+
+Device state after this entry: Nura with Phosh on `userdata`, kernel
+package `pkgrel=6` and device package `pkgrel=3`, booting from slot B;
+`aoc-komodo.bin` in `/lib/firmware/`; every audio module blacklisted and
+the AoC started by hand only; `vbmeta_b` stock; slot A untouched.
+
+Resumen: hito 6, primer audio, experimental. **Los amplificadores CS35L41
+funcionan sin el firmware de protección de Cirrus ni la calibración de
+fábrica: subir el volumen puede dañar un altavoz de forma irreversible.**
+Todo se hizo al mínimo, con estas barreras: límites del driver (Digital ≤
+817, Analog ≤ 10), pico de boost a 2,5 A (stock: 3,5 A), solo el altavoz
+inferior, DSP puenteado, un tono corto sin graves, los servidores de sonido
+ignorando la tarjeta y todos los módulos en lista negra. Hardware: dos
+CS35L41 en `spi_19` (Top, también auricular, y Bottom) y tres micrófonos
+PDM conectados al AoC, el coprocesador por el que pasa todo el audio; para
+arrancarlo hacen falta Trusty y la GSA, que verifican el firmware firmado
+`aoc.bin`. Parches: 0016 relojes de USI1; 0017, el PR #204 de Lef al kernel
+de Omamobile (chip-select nativo); 0018 `spi19`; 0019 Trusty, GSA,
+mailboxes y AoC; 0020 los dos CS35L41 con el boost a 2,5 A; 0021 la
+tarjeta; 0022, el PR #203 de Lef (EP6 conserva lo escrito antes del
+START); 0023, nuestro, lo activa para `google,zumapro-aoc`. Etapas, todas
+pasadas: E-1 arranque normal con todo en lista negra; E0 los dos
+amplificadores se identifican (revisión B2); E1 el AoC arranca con
+`16099865-polygon` y 94 servicios (una vez por arranque), aparece la
+tarjeta y los límites del driver se cumplen. El primer intento se atascó
+(`I/O error` a los ~5 s, sin sonido) porque EP6 tira lo escrito antes del
+START; se arregla con `aplay -R` o con 0022–0023. Resultado: un seno de
+1 kHz a -20 dBFS durante 2 s por el altavoz inferior, con Digital 657 y
+Analog 0, se oye, y el micrófono 0 capta la componente de 1 kHz solo
+durante esos 2 s (≈60–77 frente a ≈0,3 de fondo), con reproducción y
+captura a la vez. Estado: instalado el `pkgrel=6`; el `pkgrel=7` con
+0022–0023 aún no se ha compilado ni arrancado como paquete; el escritorio
+no tiene sonido; sin probar altavoz superior y auricular, estéreo, volumen
+de uso, los otros micrófonos, audio por Bluetooth y llamadas; avisos
+abiertos (`dmic_power_list` y el reset del AoC por ACPM). Se publican la
+lista negra, `komodo-aoc-start` (adaptado de Omamobile, MIT) y el script
+del primer tono con niveles fijos; los borradores de UCM y WirePlumber no,
+porque no están probados. Hoja de ruta: compilar el `pkgrel=7`, conectar
+PipeWire con techo de volumen, firmware de protección y calibración,
+altavoz superior, resto de micrófonos y audio por Bluetooth; después,
+dirección Bluetooth propia, cámaras y desbloqueo cómodo (la huella es el
+lector ultrasónico de Qualcomm del mundo seguro; la vía realista es el HAL
+de fábrica hablando con Trusty, que ya responde en nuestro kernel; hay un
+paso irreversible, RPMB, que no se ha dado).
